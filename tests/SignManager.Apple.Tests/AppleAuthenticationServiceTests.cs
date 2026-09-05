@@ -102,5 +102,17 @@ public class AppleAuthenticationServiceTests
 
             return Task.FromResult(teams);
         }
+
+        public Task<RegisteredDevice> EnsureDeviceAsync(string teamId, string udid, string deviceName, CancellationToken cancellationToken)
+            => Task.FromResult(new RegisteredDevice("device-1", udid, deviceName));
+
+        public Task<DevelopmentCertificate> EnsureCertificateAsync(string teamId, string csrPem, CancellationToken cancellationToken)
+            => Task.FromResult(new DevelopmentCertificate("cert-1", "serial", "pem", DateTimeOffset.UtcNow.AddDays(7)));
+
+        public Task<AppIdentifier> EnsureAppIdAsync(string teamId, string bundleId, CancellationToken cancellationToken)
+            => Task.FromResult(new AppIdentifier("app-1", bundleId, "name"));
+
+        public Task<ProvisioningProfile> CreateProvisioningProfileAsync(string teamId, string appIdId, string deviceId, string profileName, CancellationToken cancellationToken)
+            => Task.FromResult(new ProvisioningProfile("profile-1", "uuid", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(7), teamId, "bundle", ""));
     }
 }
