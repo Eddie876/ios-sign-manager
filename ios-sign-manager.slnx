@@ -12,5 +12,6 @@
     <Project Path="tests/SignManager.Core.Tests/SignManager.Core.Tests.csproj" />
     <Project Path="tests/SignManager.IntegrationTests/SignManager.IntegrationTests.csproj" />
     <Project Path="tests/SignManager.Signing.Tests/SignManager.Signing.Tests.csproj" />
+     <Project Path="tests/SignManager.Worker.Tests/SignManager.Worker.Tests.csproj" />
   </Folder>
 </Solution>

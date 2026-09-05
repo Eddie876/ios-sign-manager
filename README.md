@@ -21,7 +21,8 @@ Milestone progress snapshot:
 - Milestone 4 (OTA spike): completed at fixture-test level
 - Milestone 5 (core domain persistence): completed at fixture-test level
 - Milestone 6 (IPA management): completed at fixture-test level
-- Milestone 7+: not started
+- Milestone 7 (signing worker): completed at fixture-test level
+- Milestone 8+: not started
 
 ## Solution layout
 
