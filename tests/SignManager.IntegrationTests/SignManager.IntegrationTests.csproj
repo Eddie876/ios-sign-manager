@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\SignManager.Infrastructure\SignManager.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\SignManager.Web\SignManager.Web.csproj" />
     <ProjectReference Include="..\..\src\SignManager.Worker\SignManager.Worker.csproj" />
   </ItemGroup>

@@ -18,7 +18,8 @@ Milestone progress snapshot:
 - Milestone 1 (authentication spike): completed at fixture-test level
 - Milestone 2 (provisioning spike): completed at fixture-test level
 - Milestone 3 (signing spike): completed at fixture-test level
-- Milestone 4+: not started
+- Milestone 4 (OTA spike): completed at fixture-test level
+- Milestone 5+: not started
 
 ## Solution layout
 
