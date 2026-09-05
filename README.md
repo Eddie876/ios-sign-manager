@@ -17,7 +17,8 @@ Milestone progress snapshot:
 - Milestone 0 (protocol note scaffolding): in progress
 - Milestone 1 (authentication spike): completed at fixture-test level
 - Milestone 2 (provisioning spike): completed at fixture-test level
-- Milestone 3+: not started
+- Milestone 3 (signing spike): completed at fixture-test level
+- Milestone 4+: not started
 
 ## Solution layout
 
