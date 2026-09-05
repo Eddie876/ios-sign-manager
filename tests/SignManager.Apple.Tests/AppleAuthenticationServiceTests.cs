@@ -91,6 +91,9 @@ public class AppleAuthenticationServiceTests
 
     private sealed class FakeDeveloperClient(bool withTeam) : IAppleDeveloperClient
     {
+        public Task<bool> ViewDeveloperAsync(CancellationToken cancellationToken)
+            => Task.FromResult(withTeam);
+
         public Task<IReadOnlyList<DeveloperTeam>> GetTeamsAsync(CancellationToken cancellationToken)
         {
             IReadOnlyList<DeveloperTeam> teams = withTeam

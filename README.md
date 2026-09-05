@@ -12,6 +12,12 @@ This repository is initialized with the planned solution structure and early bas
 - Atomic JSON persistence primitive
 - Unit test scaffolding for the above
 
+Milestone progress snapshot:
+
+- Milestone 0 (protocol note scaffolding): in progress
+- Milestone 1 (authentication spike): completed at fixture-test level
+- Milestone 2+: not started
+
 ## Solution layout
 
 - `src/SignManager.Web` Razor Pages + API host

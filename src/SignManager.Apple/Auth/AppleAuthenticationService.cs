@@ -65,7 +65,6 @@ public sealed class AppleAuthenticationService(
 
     private async Task<bool> ValidateDeveloperSessionAsync(CancellationToken cancellationToken)
     {
-        var teams = await developerClient.GetTeamsAsync(cancellationToken);
-        return teams.Count > 0;
+        return await developerClient.ViewDeveloperAsync(cancellationToken);
     }
 }
