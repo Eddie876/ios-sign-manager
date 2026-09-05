@@ -22,6 +22,11 @@ public interface IGlobalSigningGate
     Task<T> RunExclusiveAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken);
 }
 
+public interface ISigningJobProcessor
+{
+    Task<SigningJobRunResult> RunAsync(SigningJobRequest request, CancellationToken cancellationToken);
+}
+
 public sealed record ProvisioningMaterial(
     string PrivateKeyPath,
     string CertificatePath,
@@ -72,3 +77,17 @@ public sealed class SigningWorkflowException(string errorCode, string message, E
 {
     public string ErrorCode { get; } = errorCode;
 }
+
+public sealed record SchedulerOptions(
+    string AppConfigPath = "data/apps.json",
+    string AppStatePath = "data/state.json",
+    string WorkspaceRoot = "data/jobs",
+    string ZsignExecutablePath = "zsign",
+    int ScanIntervalSeconds = 30,
+    int MaxProcessOutputBytes = 256 * 1024,
+    int ZsignTimeoutSeconds = 1200);
+
+public sealed record SchedulerScanResult(
+    int ScannedApps,
+    int TriggeredJobs,
+    IReadOnlyList<string> TriggeredAppIds);

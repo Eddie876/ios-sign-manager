@@ -13,7 +13,7 @@ public sealed class SigningJobProcessor(
     ISigningArtifactSigner artifactSigner,
     IGlobalSigningGate signingGate,
     RetryPolicy retryPolicy,
-    RefreshPlanner refreshPlanner)
+    RefreshPlanner refreshPlanner) : ISigningJobProcessor
 {
     public Task<SigningJobRunResult> RunAsync(SigningJobRequest request, CancellationToken cancellationToken)
     {
