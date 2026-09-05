@@ -1,0 +1,22 @@
+services:
+  sign-manager:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ../.env
+    ports:
+      - "8080:8080"
+    volumes:
+      - signmanager-data:/data
+      - signmanager-signing-state:/signing-state
+    depends_on:
+      - anisette
+
+  anisette:
+    image: dadoum/anisette-v3-server:latest
+    restart: unless-stopped
+
+volumes:
+  signmanager-data:
+  signmanager-signing-state:

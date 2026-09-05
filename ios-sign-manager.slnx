@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SignManager.Apple/SignManager.Apple.csproj" />
+    <Project Path="src/SignManager.Core/SignManager.Core.csproj" />
+    <Project Path="src/SignManager.Infrastructure/SignManager.Infrastructure.csproj" />
+    <Project Path="src/SignManager.Signing/SignManager.Signing.csproj" />
+    <Project Path="src/SignManager.Web/SignManager.Web.csproj" />
+    <Project Path="src/SignManager.Worker/SignManager.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SignManager.Apple.Tests/SignManager.Apple.Tests.csproj" />
+    <Project Path="tests/SignManager.Core.Tests/SignManager.Core.Tests.csproj" />
+    <Project Path="tests/SignManager.IntegrationTests/SignManager.IntegrationTests.csproj" />
+    <Project Path="tests/SignManager.Signing.Tests/SignManager.Signing.Tests.csproj" />
+  </Folder>
+</Solution>

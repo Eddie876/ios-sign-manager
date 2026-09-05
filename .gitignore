@@ -1,0 +1,32 @@
+# Build artifacts
+bin/
+obj/
+out/
+
+# Test artifacts
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# IDE/editor
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Runtime/local secrets
+.env
+secrets.enc
+signing-state/
+data/
+
+# Logs
+*.log
+logs/
