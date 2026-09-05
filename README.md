@@ -19,7 +19,8 @@ Milestone progress snapshot:
 - Milestone 2 (provisioning spike): completed at fixture-test level
 - Milestone 3 (signing spike): completed at fixture-test level
 - Milestone 4 (OTA spike): completed at fixture-test level
-- Milestone 5+: not started
+- Milestone 5 (core domain persistence): completed at fixture-test level
+- Milestone 6+: not started
 
 ## Solution layout
 
