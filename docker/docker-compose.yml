@@ -4,10 +4,13 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c", "umask 077 && exec dotnet web/SignManager.Web.dll"]
     env_file:
       - ../.env
     ports:
       - "8080:8080"
+    mem_limit: 1024m
+    pids_limit: 256
     read_only: true
     tmpfs:
       - /tmp
@@ -32,8 +35,11 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c", "umask 077 && exec dotnet worker/SignManager.Worker.dll"]
     env_file:
       - ../.env
+    mem_limit: 1024m
+    pids_limit: 256
     read_only: true
     tmpfs:
       - /tmp
@@ -41,7 +47,6 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    command: ["dotnet", "worker/SignManager.Worker.dll"]
     volumes:
       - signmanager-data:/data
       - signmanager-signing-state:/signing-state
@@ -51,6 +56,8 @@ services:
   anisette:
     image: dadoum/anisette-v3-server:latest
     restart: unless-stopped
+    mem_limit: 256m
+    pids_limit: 128
 
 volumes:
   signmanager-data:

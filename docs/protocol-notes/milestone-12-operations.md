@@ -20,6 +20,8 @@ Scope covered in code and tests:
   - no-new-privileges
   - all Linux capabilities dropped
   - tmpfs mount for `/tmp`
+  - runtime `umask 077` for web and worker entrypoints
+  - memory and pid limits for web, worker, and anisette services
 - Cleanup support added:
   - worker job-workspace cleanup service with max age policy
   - cleanup isolates per-directory delete failures and continues processing

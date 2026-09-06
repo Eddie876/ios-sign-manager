@@ -5,8 +5,10 @@
 - `sign-manager` container:
 	- ASP.NET Core Web UI
 	- Shortcut API (`/api/shortcut/*`)
-	- Background Worker scheduler
 	- zsign binary for signing flows
+- `sign-manager-worker` container:
+	- Background Worker scheduler
+	- signing and publish pipeline execution
 - `anisette` container: anisette headers provider
 
 ## Data volumes
@@ -132,14 +134,15 @@ Local scripts:
 Examples:
 
 ```powershell
-./scripts/backup.ps1 -DataRoot ./data -OutputPath ./backups/sign-manager-backup.zip
-./scripts/restore.ps1 -BackupPath ./backups/sign-manager-backup.zip -RestoreRoot ./data-restore
+./scripts/backup.ps1 -DataRoot ./data -SigningStateRoot ./signing-state -OutputPath ./backups/sign-manager-backup.zip
+./scripts/restore.ps1 -BackupPath ./backups/sign-manager-backup.zip -RestoreRoot ./data-restore -SigningStateRoot ./signing-state-restore
 ```
 
 Operational safeguards:
 
 - Backup output archive path must be outside the data root (prevents self-inclusion/corruption).
-- Restore rejects archive entries that attempt path traversal outside the restore root.
+- Backup output archive path must be outside the signing-state root.
+- Restore rejects archive entries that attempt path traversal outside the restore roots.
 
 ## Workspace cleanup
 
@@ -164,6 +167,8 @@ Container hardening defaults include:
 - `no-new-privileges`
 - dropped Linux capabilities (`ALL`)
 - tmpfs mount on `/tmp`
+- runtime `umask 077` via container entrypoint
+- `mem_limit` and `pids_limit` constraints for each service
 
 ## Deploy checklist
 
