@@ -33,6 +33,7 @@ builder.Services.PostConfigure<SchedulerOptions>(options =>
 	var grandSlamBaseUrl = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_GRANDSLAM_BASE_URL");
 	var developerBaseUrl = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVELOPER_BASE_URL");
 	var masterKeyPath = Environment.GetEnvironmentVariable("SIGNMANAGER_MASTER_KEY_PATH");
+	var zsignExecutablePath = Environment.GetEnvironmentVariable("SIGNMANAGER_ZSIGN_PATH");
 
 	var deviceUdid = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVICE_UDID");
 	var deviceName = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVICE_NAME");
@@ -72,6 +73,11 @@ builder.Services.PostConfigure<SchedulerOptions>(options =>
 	if (!string.IsNullOrWhiteSpace(masterKeyPath))
 	{
 		options.AppleSessionMasterKeyPath = masterKeyPath;
+	}
+
+	if (!string.IsNullOrWhiteSpace(zsignExecutablePath))
+	{
+		options.ZsignExecutablePath = zsignExecutablePath;
 	}
 
 	if (!string.IsNullOrWhiteSpace(deviceUdid))

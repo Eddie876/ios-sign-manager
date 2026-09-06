@@ -73,6 +73,12 @@ Set the following `Scheduler` values (via appsettings or mapped env strategy):
 - `AppleSessionSecretsPath`: encrypted Apple session token file
 - `AppleSessionMasterKeyPath`: session master key file path
 
+## zsign execution configuration
+
+- `Scheduler.ZsignExecutablePath` default is `zsign`.
+- For deterministic container execution, set `SIGNMANAGER_ZSIGN_PATH=/usr/local/bin/zsign`.
+- Startup checks in signing path now validate required source/profile/certificate/key files before invoking zsign.
+
 Current worker defaults are defined in:
 
 - `src/SignManager.Worker/appsettings.json`

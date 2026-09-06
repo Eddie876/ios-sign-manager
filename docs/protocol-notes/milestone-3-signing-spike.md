@@ -17,6 +17,16 @@ Scope covered in code and tests:
   - bundle ID matches expected
   - profile UUID and expiration match expected
 
+Deploy-ready updates:
+
+- zsign signing service now validates inputs before process start:
+  - source IPA exists
+  - private key/certificate/profile files exist
+  - timeout and output-byte limits are positive
+  - configured executable path is validated when explicit path is provided
+- Worker supports `SIGNMANAGER_ZSIGN_PATH` runtime override for deterministic deployment paths.
+- Added failure-path tests for timeout, missing source IPA, and missing output artifact after successful process exit.
+
 Current constraints:
 
 - Fixture-level validation currently focuses on XML Info.plist test artifacts.

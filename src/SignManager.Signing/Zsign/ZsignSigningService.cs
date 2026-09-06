@@ -12,6 +12,8 @@ public sealed class ZsignSigningService(
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        ValidateRequest(request);
+
         Directory.CreateDirectory(request.WorkspaceDirectory);
 
         var zsignRequest = new ZsignRequest(
@@ -67,6 +69,55 @@ public sealed class ZsignSigningService(
             outputInfo.Length,
             sha256,
             processResult.Duration);
+    }
+
+    private static void ValidateRequest(ZsignSignRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.ZsignExecutablePath))
+        {
+            throw new InvalidOperationException("zsign executable path is required.");
+        }
+
+        if (!Directory.Exists(request.WorkspaceDirectory))
+        {
+            Directory.CreateDirectory(request.WorkspaceDirectory);
+        }
+
+        if (!File.Exists(request.SourceIpaPath))
+        {
+            throw new InvalidOperationException("Source IPA does not exist.");
+        }
+
+        if (!File.Exists(request.PrivateKeyPath))
+        {
+            throw new InvalidOperationException("Private key file does not exist.");
+        }
+
+        if (!File.Exists(request.CertificatePath))
+        {
+            throw new InvalidOperationException("Certificate file does not exist.");
+        }
+
+        if (!File.Exists(request.MobileProvisionPath))
+        {
+            throw new InvalidOperationException("Provisioning profile file does not exist.");
+        }
+
+        if (request.Timeout <= TimeSpan.Zero)
+        {
+            throw new InvalidOperationException("zsign timeout must be positive.");
+        }
+
+        if (request.MaxProcessOutputBytes <= 0)
+        {
+            throw new InvalidOperationException("Max process output bytes must be positive.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(Path.GetDirectoryName(request.ZsignExecutablePath))
+            && !File.Exists(request.ZsignExecutablePath))
+        {
+            throw new InvalidOperationException("Configured zsign executable path does not exist.");
+        }
     }
 
     private static async Task<string> ComputeSha256Async(string path, CancellationToken cancellationToken)
