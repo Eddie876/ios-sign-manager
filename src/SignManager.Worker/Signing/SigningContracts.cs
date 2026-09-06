@@ -102,7 +102,7 @@ public sealed class SchedulerOptions
         string AppStatePath = "data/state/state.json",
         string WorkspaceRoot = "data/jobs",
         string ZsignExecutablePath = "zsign",
-        int ScanIntervalSeconds = 30,
+        int ScanIntervalSeconds = 60,
         int MaxProcessOutputBytes = 256 * 1024,
         int ZsignTimeoutSeconds = 1200,
         int CleanupMaxAgeHours = 24,

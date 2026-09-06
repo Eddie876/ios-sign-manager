@@ -151,6 +151,8 @@ Operational safeguards:
 
 ## Workspace cleanup
 
+- Scheduler scan loop interval default is 60 seconds (`Scheduler.ScanIntervalSeconds`).
+
 - Worker periodically cleans old job directories under `WorkspaceRoot`.
 - Controlled by `Scheduler.CleanupMaxAgeHours` (default 24h).
 - Cleanup now isolates per-directory delete failures; one locked/broken directory will not abort the entire cleanup pass.
