@@ -12,9 +12,11 @@
 }
 
 <form method="post" class="row g-3">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
     <div class="col-md-6">
         <label class="form-label">Public Base URL</label>
         <input asp-for="Input.PublicBaseUrl" class="form-control" />
+        <span asp-validation-for="Input.PublicBaseUrl" class="text-danger"></span>
     </div>
     <div class="col-md-6">
         <label class="form-label">Apple ID (masked)</label>
@@ -27,10 +29,12 @@
     <div class="col-md-6">
         <label class="form-label">Session Status</label>
         <input asp-for="Input.SessionStatus" class="form-control" />
+        <span asp-validation-for="Input.SessionStatus" class="text-danger"></span>
     </div>
     <div class="col-md-6">
         <label class="form-label">Certificate Status</label>
         <input asp-for="Input.CertificateStatus" class="form-control" />
+        <span asp-validation-for="Input.CertificateStatus" class="text-danger"></span>
     </div>
     <div class="col-12">
         <button class="btn btn-primary" type="submit">Save Settings</button>

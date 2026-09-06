@@ -7,6 +7,7 @@
 <h1 class="h3 mb-3">Add App</h1>
 
 <form method="post" enctype="multipart/form-data" class="row g-3 mb-4">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
     <div class="col-md-6">
         <label class="form-label">Name</label>
         <input asp-for="Input.Name" class="form-control" required />
@@ -14,14 +15,17 @@
     <div class="col-md-6">
         <label class="form-label">Effective Bundle ID</label>
         <input asp-for="Input.EffectiveBundleId" class="form-control" required />
+        <span asp-validation-for="Input.EffectiveBundleId" class="text-danger"></span>
     </div>
     <div class="col-md-6">
         <label class="form-label">Publish Slug (optional)</label>
         <input asp-for="Input.PublishSlug" class="form-control" />
+        <span asp-validation-for="Input.PublishSlug" class="text-danger"></span>
     </div>
     <div class="col-md-6">
         <label class="form-label">Interval Hours</label>
         <input asp-for="Input.IntervalHours" class="form-control" type="number" min="1" />
+        <span asp-validation-for="Input.IntervalHours" class="text-danger"></span>
     </div>
     <div class="col-md-4 form-check ms-2">
         <input asp-for="Input.RemoveExtensions" class="form-check-input" />

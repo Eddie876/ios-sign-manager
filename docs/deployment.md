@@ -107,6 +107,9 @@ Current worker defaults are defined in:
 	- `UploadMaxSingleEntryBytes`
 	- `UploadMaxCompressionRatio`
 - Web rejects uploads that exceed `UploadMaxBytes` before temp-file write.
+- Web settings save path enforces `PublicBaseUrl` as absolute HTTPS URL and normalizes trailing slashes.
+- Web Sign Now action now validates app existence before state mutation and returns user-visible error alerts for invalid app IDs.
+- Add/Replace forms surface preflight and domain validation failures as form errors (non-500 flow).
 
 Current web defaults are defined in:
 

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using System.ComponentModel.DataAnnotations;
 using SignManager.Web.Services;
 
 namespace SignManager.Web.Pages.Settings;
@@ -27,14 +28,27 @@ public sealed class IndexModel(WebAppService appService) : PageModel
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        await appService.SaveSettingsAsync(
-            new WebSettings(
-                PublicBaseUrl: Input.PublicBaseUrl,
-                AppleIdMasked: Input.AppleIdMasked,
-                TeamId: Input.TeamId,
-                SessionStatus: Input.SessionStatus,
-                CertificateStatus: Input.CertificateStatus),
-            cancellationToken);
+        if (!ModelState.IsValid)
+        {
+            return Page();
+        }
+
+        try
+        {
+            await appService.SaveSettingsAsync(
+                new WebSettings(
+                    PublicBaseUrl: Input.PublicBaseUrl,
+                    AppleIdMasked: Input.AppleIdMasked,
+                    TeamId: Input.TeamId,
+                    SessionStatus: Input.SessionStatus,
+                    CertificateStatus: Input.CertificateStatus),
+                cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ModelState.AddModelError(string.Empty, ex.Message);
+            return Page();
+        }
 
         Message = "Settings saved.";
         return RedirectToPage();
@@ -42,14 +56,20 @@ public sealed class IndexModel(WebAppService appService) : PageModel
 
     public sealed class InputModel
     {
+        [Required]
+        [MaxLength(2048)]
         public string PublicBaseUrl { get; set; } = "https://ios.example.com";
 
         public string? AppleIdMasked { get; set; }
 
         public string? TeamId { get; set; }
 
+        [Required]
+        [MaxLength(64)]
         public string SessionStatus { get; set; } = "Auth Required";
 
+        [Required]
+        [MaxLength(64)]
         public string CertificateStatus { get; set; } = "Unknown";
     }
 }

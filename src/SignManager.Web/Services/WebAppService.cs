@@ -183,6 +183,14 @@ public sealed class WebAppService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(appId);
 
+        var config = await appConfigStore.LoadAsync(options.Value.AppConfigPath, cancellationToken)
+            ?? new AppConfig(AppConfigStore.CurrentVersion, []);
+
+        if (!config.Apps.Any(x => string.Equals(x.Id, appId, StringComparison.Ordinal)))
+        {
+            throw new InvalidOperationException($"App '{appId}' not found.");
+        }
+
         var (_, states) = await LoadConfigAndStateAsync(cancellationToken);
         states.TryGetValue(appId, out var current);
 
@@ -224,7 +232,16 @@ public sealed class WebAppService(
         => settingsStore.LoadAsync(options.Value.SettingsPath, cancellationToken);
 
     public Task SaveSettingsAsync(WebSettings settings, CancellationToken cancellationToken)
-        => settingsStore.SaveAsync(options.Value.SettingsPath, settings, cancellationToken);
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        var normalized = settings with
+        {
+            PublicBaseUrl = ValidateAndNormalizePublicBaseUrl(settings.PublicBaseUrl),
+        };
+
+        return settingsStore.SaveAsync(options.Value.SettingsPath, normalized, cancellationToken);
+    }
 
     public async Task<AppleAccountStatusViewModel> GetAppleStatusAsync(CancellationToken cancellationToken)
     {
@@ -262,7 +279,8 @@ public sealed class WebAppService(
 
     private static string BuildInstallUrl(string publicBaseUrl, string slug)
     {
-        var manifestUrl = $"{publicBaseUrl.TrimEnd('/')}/apps/{slug}/latest/manifest.plist";
+        var normalizedBaseUrl = ValidateAndNormalizePublicBaseUrl(publicBaseUrl);
+        var manifestUrl = $"{normalizedBaseUrl}/apps/{slug}/latest/manifest.plist";
         return ItmsServicesUrlBuilder.BuildInstallUrl(manifestUrl);
     }
 
@@ -323,6 +341,23 @@ public sealed class WebAppService(
         }
 
         return slug;
+    }
+
+    private static string ValidateAndNormalizePublicBaseUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException("Public base URL is required.");
+        }
+
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(uri.Host))
+        {
+            throw new InvalidOperationException("Public base URL must be an absolute HTTPS URL.");
+        }
+
+        return uri.ToString().TrimEnd('/');
     }
 }
 

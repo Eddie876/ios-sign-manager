@@ -24,6 +24,7 @@ else
 
     <form method="post" enctype="multipart/form-data" class="mb-3">
         <input type="hidden" asp-for="AppId" />
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
         <div class="mb-3">
             <label class="form-label">New Source IPA</label>
             <input asp-for="IpaFile" type="file" class="form-control" accept=".ipa" required />

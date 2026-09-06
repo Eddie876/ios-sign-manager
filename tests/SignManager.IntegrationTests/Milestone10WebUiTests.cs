@@ -225,6 +225,79 @@ public class Milestone10WebUiTests
         }
     }
 
+    [Fact]
+    public async Task SaveSettings_ShouldRejectNonHttpsPublicBaseUrl()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var options = CreateOptions(root);
+            var service = CreateService(options);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.SaveSettingsAsync(
+                    new WebSettings(
+                        PublicBaseUrl: "http://ios.example.com",
+                        AppleIdMasked: null,
+                        TeamId: null,
+                        SessionStatus: "Auth Required",
+                        CertificateStatus: "Unknown"),
+                    CancellationToken.None));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task SaveSettings_ShouldNormalizeTrailingSlashInPublicBaseUrl()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var options = CreateOptions(root);
+            var service = CreateService(options);
+
+            await service.SaveSettingsAsync(
+                new WebSettings(
+                    PublicBaseUrl: "https://ios.example.com///",
+                    AppleIdMasked: null,
+                    TeamId: null,
+                    SessionStatus: "Auth Required",
+                    CertificateStatus: "Unknown"),
+                CancellationToken.None);
+
+            var settings = await service.GetSettingsAsync(CancellationToken.None);
+            Assert.Equal("https://ios.example.com", settings.PublicBaseUrl);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task SignNow_ShouldThrowWhenAppDoesNotExist()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var options = CreateOptions(root);
+            var service = CreateService(options);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.RequestSignNowAsync("missing-app", CancellationToken.None));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static WebAppService CreateService(WebUiOptions webOptions)
     {
         var options = Options.Create(webOptions);

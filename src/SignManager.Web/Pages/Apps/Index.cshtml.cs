@@ -11,6 +11,9 @@ public sealed class IndexModel(WebAppService appService) : PageModel
     [TempData]
     public string? Message { get; set; }
 
+    [TempData]
+    public string? ErrorMessage { get; set; }
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         Apps = await appService.GetAppsAsync(cancellationToken);
@@ -18,8 +21,16 @@ public sealed class IndexModel(WebAppService appService) : PageModel
 
     public async Task<IActionResult> OnPostSignNowAsync(string appId, CancellationToken cancellationToken)
     {
-        await appService.RequestSignNowAsync(appId, cancellationToken);
-        Message = $"Sign Now queued for {appId}.";
+        try
+        {
+            await appService.RequestSignNowAsync(appId, cancellationToken);
+            Message = $"Sign Now queued for {appId}.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+
         return RedirectToPage();
     }
 }
