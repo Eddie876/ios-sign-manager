@@ -4,6 +4,7 @@ using SignManager.Core.Models;
 using SignManager.Core.Policies;
 using SignManager.Core.Services;
 using SignManager.Signing.Ipa;
+using SignManager.Signing.Zsign;
 using SignManager.Worker.Signing;
 
 namespace SignManager.Worker.Tests;
@@ -211,6 +212,36 @@ public class SigningJobProcessorTests
             Assert.Equal(StableErrorCodes.R2UploadFailed, result.ErrorCode);
             Assert.True(result.ShouldRetry);
             Assert.Equal(now.AddMinutes(15), result.NextRetryAt);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_ShouldMapUnsupportedEntitlement_FromTypedValidationException()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var sourcePath = Path.Combine(root, "sources", "app1", "source.ipa");
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            await File.WriteAllBytesAsync(sourcePath, [1, 2, 3, 4]);
+            var sourceSha256 = await ComputeSha256Async(sourcePath);
+
+            var request = CreateRequest(root, sourcePath, sourceSha256, DateTimeOffset.UtcNow);
+            var provider = new FakeProvisioningProvider(CreateProvisioningMaterial(root, request.NowUtc));
+            var signer = new FakeSigner((_, _) => throw new SignedIpaValidationException(StableErrorCodes.UnsupportedEntitlement, "unsupported entitlement"));
+            var publisher = new FakeBuildPublisher((_, _) => throw new InvalidOperationException("should not publish"));
+
+            var processor = CreateProcessor(provider, signer, publisher);
+            var result = await processor.RunAsync(request, CancellationToken.None);
+
+            Assert.Equal(SigningJobStatus.Failed, result.Job.Status);
+            Assert.Equal(StableErrorCodes.UnsupportedEntitlement, result.ErrorCode);
+            Assert.False(result.ShouldRetry);
         }
         finally
         {

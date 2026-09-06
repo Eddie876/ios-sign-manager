@@ -5,6 +5,7 @@ using SignManager.Core.Services;
 using SignManager.Infrastructure.Notifications;
 using SignManager.Infrastructure.Persistence;
 using SignManager.Signing.Ipa;
+using SignManager.Signing.Zsign;
 
 namespace SignManager.Worker.Signing;
 
@@ -216,6 +217,7 @@ public sealed class WorkerSigningScheduler(
         {
             SigningWorkflowException workflow => workflow.ErrorCode,
             IpaPreflightException preflight => preflight.ErrorCode,
+            SignedIpaValidationException validation => validation.ErrorCode,
             FileNotFoundException => StableErrorCodes.InvalidIpa,
             _ => StableErrorCodes.ZsignFailed,
         };

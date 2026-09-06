@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
+using SignManager.Core.Constants;
 
 namespace SignManager.Signing.Zsign;
 
@@ -12,40 +13,106 @@ public sealed class SignedIpaValidator
 
         if (!File.Exists(request.IpaPath))
         {
-            return SignedIpaValidationResult.CreateFailure("Signed IPA output does not exist.");
+            return SignedIpaValidationResult.CreateFailure(StableErrorCodes.SignedIpaValidationFailed, "Signed IPA output does not exist.");
         }
 
         using var archive = ZipFile.OpenRead(request.IpaPath);
         var infoPlistEntry = archive.Entries.FirstOrDefault(e => e.FullName.StartsWith("Payload/", StringComparison.Ordinal) && e.FullName.EndsWith(".app/Info.plist", StringComparison.Ordinal));
         if (infoPlistEntry is null)
         {
-            return SignedIpaValidationResult.CreateFailure("Main app Info.plist not found.");
+            return SignedIpaValidationResult.CreateFailure(StableErrorCodes.SignedIpaValidationFailed, "Main app Info.plist not found.");
         }
 
         var mobileProvisionEntry = archive.Entries.FirstOrDefault(e => e.FullName.StartsWith("Payload/", StringComparison.Ordinal) && e.FullName.EndsWith(".app/embedded.mobileprovision", StringComparison.Ordinal));
         if (mobileProvisionEntry is null)
         {
-            return SignedIpaValidationResult.CreateFailure("embedded.mobileprovision not found.");
+            return SignedIpaValidationResult.CreateFailure(StableErrorCodes.SignedIpaValidationFailed, "embedded.mobileprovision not found.");
         }
 
         var actualBundleId = ReadBundleId(infoPlistEntry);
         if (!string.Equals(actualBundleId, request.ExpectedBundleId, StringComparison.Ordinal))
         {
-            return SignedIpaValidationResult.CreateFailure($"Bundle ID mismatch. Expected '{request.ExpectedBundleId}', got '{actualBundleId}'.");
+            return SignedIpaValidationResult.CreateFailure(
+                StableErrorCodes.SignedIpaValidationFailed,
+                $"Bundle ID mismatch. Expected '{request.ExpectedBundleId}', got '{actualBundleId}'.");
         }
 
         var profile = ReadProfileMetadata(mobileProvisionEntry);
         if (!string.Equals(profile.Uuid, request.ExpectedProfileUuid, StringComparison.OrdinalIgnoreCase))
         {
-            return SignedIpaValidationResult.CreateFailure($"Profile UUID mismatch. Expected '{request.ExpectedProfileUuid}', got '{profile.Uuid}'.");
+            return SignedIpaValidationResult.CreateFailure(
+                StableErrorCodes.SignedIpaValidationFailed,
+                $"Profile UUID mismatch. Expected '{request.ExpectedProfileUuid}', got '{profile.Uuid}'.");
         }
 
         if (profile.ExpirationDate != request.ExpectedProfileExpirationDate)
         {
-            return SignedIpaValidationResult.CreateFailure("Profile expiration mismatch.");
+            return SignedIpaValidationResult.CreateFailure(StableErrorCodes.SignedIpaValidationFailed, "Profile expiration mismatch.");
+        }
+
+        var entitlements = ExtractEntitlementKeys(archive);
+        if (request.AllowedEntitlementKeys is { Count: > 0 })
+        {
+            var unsupported = entitlements
+                .Where(x => !request.AllowedEntitlementKeys.Contains(x))
+                .OrderBy(x => x, StringComparer.Ordinal)
+                .ToArray();
+
+            if (unsupported.Length > 0)
+            {
+                return SignedIpaValidationResult.CreateFailure(
+                    StableErrorCodes.UnsupportedEntitlement,
+                    $"Unsupported entitlements detected: {string.Join(", ", unsupported)}");
+            }
         }
 
         return SignedIpaValidationResult.CreateSuccess(actualBundleId, profile.Uuid, profile.ExpirationDate);
+    }
+
+    private static IReadOnlyList<string> ExtractEntitlementKeys(ZipArchive archive)
+    {
+        var entitlementEntries = archive.Entries
+            .Where(e => e.FullName.StartsWith("Payload/", StringComparison.Ordinal)
+                && (e.FullName.EndsWith(".xcent", StringComparison.OrdinalIgnoreCase)
+                    || e.FullName.Contains("entitlements", StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entry in entitlementEntries)
+        {
+            using var stream = entry.Open();
+            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            var raw = reader.ReadToEnd();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            var plist = ParsePlist(raw);
+            foreach (var key in plist.Descendants("key"))
+            {
+                if (!string.IsNullOrWhiteSpace(key.Value))
+                {
+                    keys.Add(key.Value);
+                }
+            }
+        }
+
+        return keys.ToArray();
+    }
+
+    private static XDocument ParsePlist(string content)
+    {
+        var start = content.IndexOf("<?xml", StringComparison.Ordinal);
+        var end = content.IndexOf("</plist>", StringComparison.Ordinal);
+
+        if (start >= 0 && end > start)
+        {
+            var xml = content[start..(end + "</plist>".Length)];
+            return XDocument.Parse(xml);
+        }
+
+        return XDocument.Parse(content);
     }
 
     private static string ReadBundleId(ZipArchiveEntry infoPlistEntry)
@@ -123,17 +190,25 @@ public sealed record SignedIpaValidationRequest(
     string IpaPath,
     string ExpectedBundleId,
     string ExpectedProfileUuid,
-    DateTimeOffset ExpectedProfileExpirationDate);
+    DateTimeOffset ExpectedProfileExpirationDate,
+    IReadOnlySet<string>? AllowedEntitlementKeys = null);
 
 public sealed record SignedIpaValidationResult(
     bool Success,
+    string? ErrorCode,
     string? Error,
     string? BundleId,
     string? ProfileUuid,
     DateTimeOffset? ProfileExpirationDate)
 {
-    public static SignedIpaValidationResult CreateFailure(string error) => new(false, error, null, null, null);
+    public static SignedIpaValidationResult CreateFailure(string errorCode, string error) => new(false, errorCode, error, null, null, null);
 
     public static SignedIpaValidationResult CreateSuccess(string bundleId, string profileUuid, DateTimeOffset profileExpirationDate)
-        => new(true, null, bundleId, profileUuid, profileExpirationDate);
+        => new(true, null, null, bundleId, profileUuid, profileExpirationDate);
+}
+
+public sealed class SignedIpaValidationException(string errorCode, string message)
+    : InvalidOperationException(message)
+{
+    public string ErrorCode { get; } = errorCode;
 }

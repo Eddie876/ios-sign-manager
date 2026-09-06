@@ -39,6 +39,7 @@ public class ZsignSigningServiceTests
                 ExpectedBundleId: "com.eddie.sideload.qrscanner",
                 ExpectedProfileUuid: "profile-uuid",
                 ExpectedProfileExpirationDate: expectedExpiration,
+                AllowedEntitlementKeys: null,
                 Timeout: TimeSpan.FromSeconds(30)),
                 CancellationToken.None);
 
@@ -81,6 +82,7 @@ public class ZsignSigningServiceTests
                     ExpectedBundleId: "com.eddie.sideload.qrscanner",
                     ExpectedProfileUuid: "profile-uuid",
                     ExpectedProfileExpirationDate: DateTimeOffset.UtcNow.AddDays(1),
+                    AllowedEntitlementKeys: null,
                     Timeout: TimeSpan.FromSeconds(30)),
                 CancellationToken.None));
 
@@ -130,6 +132,7 @@ public class ZsignSigningServiceTests
                     ExpectedBundleId: "com.eddie.sideload.qrscanner",
                     ExpectedProfileUuid: "profile-uuid",
                     ExpectedProfileExpirationDate: DateTimeOffset.UtcNow.AddDays(1),
+                    AllowedEntitlementKeys: null,
                     Timeout: TimeSpan.FromSeconds(1)),
                 CancellationToken.None));
 
@@ -172,6 +175,7 @@ public class ZsignSigningServiceTests
                     ExpectedBundleId: "com.eddie.sideload.qrscanner",
                     ExpectedProfileUuid: "profile-uuid",
                     ExpectedProfileExpirationDate: DateTimeOffset.UtcNow.AddDays(1),
+                    AllowedEntitlementKeys: null,
                     Timeout: TimeSpan.FromSeconds(10)),
                 CancellationToken.None));
 

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using SignManager.Core.Constants;
 
 namespace SignManager.Signing.Zsign;
 
@@ -54,11 +55,14 @@ public sealed class ZsignSigningService(
             request.OutputIpaPath,
             request.ExpectedBundleId,
             request.ExpectedProfileUuid,
-            request.ExpectedProfileExpirationDate));
+            request.ExpectedProfileExpirationDate,
+            request.AllowedEntitlementKeys));
 
         if (!validation.Success)
         {
-            throw new InvalidOperationException($"Signed IPA validation failed: {validation.Error}");
+            throw new SignedIpaValidationException(
+                validation.ErrorCode ?? StableErrorCodes.SignedIpaValidationFailed,
+                $"Signed IPA validation failed: {validation.Error}");
         }
 
         var outputInfo = new FileInfo(request.OutputIpaPath);
@@ -142,6 +146,7 @@ public sealed record ZsignSignRequest(
     string ExpectedBundleId,
     string ExpectedProfileUuid,
     DateTimeOffset ExpectedProfileExpirationDate,
+    IReadOnlySet<string>? AllowedEntitlementKeys,
     TimeSpan Timeout,
     int MaxProcessOutputBytes = 256 * 1024);
 

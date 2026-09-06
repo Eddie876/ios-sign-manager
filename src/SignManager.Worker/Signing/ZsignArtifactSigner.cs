@@ -4,6 +4,14 @@ namespace SignManager.Worker.Signing;
 
 public sealed class ZsignArtifactSigner(ZsignSigningService signingService) : ISigningArtifactSigner
 {
+    private static readonly HashSet<string> SupportedEntitlementKeys =
+    [
+        "application-identifier",
+        "com.apple.developer.team-identifier",
+        "keychain-access-groups",
+        "get-task-allow",
+    ];
+
     public async Task<SignedBuildArtifact> SignAsync(SignArtifactRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -23,6 +31,7 @@ public sealed class ZsignArtifactSigner(ZsignSigningService signingService) : IS
                 ExpectedBundleId: request.EffectiveBundleId,
                 ExpectedProfileUuid: request.Provisioning.Provisioning.Uuid,
                 ExpectedProfileExpirationDate: request.Provisioning.Provisioning.ExpirationDate,
+                AllowedEntitlementKeys: SupportedEntitlementKeys,
                 Timeout: request.Timeout,
                 MaxProcessOutputBytes: request.MaxProcessOutputBytes),
             cancellationToken);

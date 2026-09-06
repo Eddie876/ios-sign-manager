@@ -4,6 +4,7 @@ using SignManager.Core.Models;
 using SignManager.Core.Policies;
 using SignManager.Core.Services;
 using SignManager.Signing.Ipa;
+using SignManager.Signing.Zsign;
 
 namespace SignManager.Worker.Signing;
 
@@ -218,6 +219,7 @@ public sealed class SigningJobProcessor(
         {
             SigningWorkflowException workflow => workflow.ErrorCode,
             IpaPreflightException preflight => preflight.ErrorCode,
+            SignedIpaValidationException validation => validation.ErrorCode,
             FileNotFoundException => StableErrorCodes.InvalidIpa,
             _ when stage == WorkflowStage.Publishing => StableErrorCodes.R2UploadFailed,
             _ => StableErrorCodes.ZsignFailed,
