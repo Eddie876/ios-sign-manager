@@ -18,6 +18,7 @@ public sealed class RetryPolicy
         StableErrorCodes.UnsupportedEntitlement,
         StableErrorCodes.InvalidIpa,
         StableErrorCodes.ProfileNotFresh,
+        StableErrorCodes.SignedIpaValidationFailed,
     ];
 
     public bool IsRetryable(string? errorCode)

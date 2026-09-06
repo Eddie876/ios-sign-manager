@@ -28,7 +28,16 @@ Validation status:
 - Worker tests cover success path, retryable signer failure, non-retryable auth failure, source SHA mismatch, and global semaphore exclusivity.
 - Full solution test run is green.
 
+Deploy-ready updates:
+
+- `SigningJobProcessor` now maps untyped publish-stage failures to `R2_UPLOAD_FAILED` using stage-aware error mapping.
+- Cancellation semantics hardened: worker cancellation now propagates `OperationCanceledException` instead of being rewritten as signing failure.
+- Signed build validation strengthened to verify on-disk artifact size and SHA-256 against signer-reported metadata.
+- `SIGNED_IPA_VALIDATION_FAILED` is now non-retryable in retry policy to avoid futile retries on deterministic artifact integrity failures.
+- Timeline ordering fixed to emit `Publishing` before `Ready`, aligning observable state with real execution order.
+- Added worker tests for publish error-code mapping, timeline ordering, cancellation propagation, and artifact hash mismatch handling.
+
 Status:
 
-- Milestone 7 is complete at fixture-test level.
+- Milestone 7 is complete at deploy-ready level.
 - Milestone 8 scheduler implementation can now build on the stable worker signing orchestration contract.

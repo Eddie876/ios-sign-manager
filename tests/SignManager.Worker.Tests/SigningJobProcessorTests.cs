@@ -24,10 +24,11 @@ public class SigningJobProcessorTests
 
             var request = CreateRequest(root, sourcePath, sourceSha256, DateTimeOffset.UtcNow);
             var provider = new FakeProvisioningProvider(CreateProvisioningMaterial(root, request.NowUtc));
-            var signer = new FakeSigner((signRequest, _) =>
+            var signer = new FakeSigner(async (signRequest, _) =>
             {
                 File.WriteAllBytes(signRequest.OutputIpaPath, [9, 9, 9, 9]);
-                return Task.FromResult(new SignedBuildArtifact(signRequest.OutputIpaPath, 4, "cafebabe", TimeSpan.FromSeconds(1)));
+                var hash = await ComputeSha256Async(signRequest.OutputIpaPath);
+                return new SignedBuildArtifact(signRequest.OutputIpaPath, 4, hash, TimeSpan.FromSeconds(1));
             });
             var publisher = new FakeBuildPublisher((_, _) => Task.FromResult(new BuildPublishResult("itms-services://ok", "https://example/latest/manifest.plist", "https://example/latest/latest.json")));
 
@@ -46,6 +47,8 @@ public class SigningJobProcessorTests
             Assert.Contains(SigningJobStatus.Validation, result.Timeline);
             Assert.Contains(SigningJobStatus.Publishing, result.Timeline);
             Assert.Contains(SigningJobStatus.Ready, result.Timeline);
+            var timeline = result.Timeline.ToArray();
+            Assert.True(Array.IndexOf(timeline, SigningJobStatus.Publishing) < Array.IndexOf(timeline, SigningJobStatus.Ready));
             Assert.True(File.Exists(Path.Combine(root, "workspace", request.Job.JobId, "signed.ipa")));
         }
         finally
@@ -141,6 +144,106 @@ public class SigningJobProcessorTests
             Assert.Equal(StableErrorCodes.AuthRequired, result.ErrorCode);
             Assert.Equal(RuntimeStatus.AuthRequired, result.RuntimeState.Status);
             Assert.False(result.ShouldRetry);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_ShouldMapPublishFailureToR2UploadFailed_AndRetry()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var sourcePath = Path.Combine(root, "sources", "app1", "source.ipa");
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            await File.WriteAllBytesAsync(sourcePath, [1, 2, 3, 4]);
+            var sourceSha256 = await ComputeSha256Async(sourcePath);
+            var now = new DateTimeOffset(2026, 9, 6, 3, 0, 0, TimeSpan.Zero);
+
+            var request = CreateRequest(root, sourcePath, sourceSha256, now);
+            var provider = new FakeProvisioningProvider(CreateProvisioningMaterial(root, request.NowUtc));
+            var signer = new FakeSigner(async (signRequest, _) =>
+            {
+                File.WriteAllBytes(signRequest.OutputIpaPath, [9, 9, 9, 9]);
+                var hash = await ComputeSha256Async(signRequest.OutputIpaPath);
+                return new SignedBuildArtifact(signRequest.OutputIpaPath, 4, hash, TimeSpan.FromSeconds(1));
+            });
+            var publisher = new FakeBuildPublisher((_, _) => throw new InvalidOperationException("upload failed"));
+
+            var processor = CreateProcessor(provider, signer, publisher);
+            var result = await processor.RunAsync(request, CancellationToken.None);
+
+            Assert.Equal(SigningJobStatus.Failed, result.Job.Status);
+            Assert.Equal(StableErrorCodes.R2UploadFailed, result.ErrorCode);
+            Assert.True(result.ShouldRetry);
+            Assert.Equal(now.AddMinutes(15), result.NextRetryAt);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_ShouldFailSignedValidation_WhenArtifactHashDoesNotMatchOutput()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var sourcePath = Path.Combine(root, "sources", "app1", "source.ipa");
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            await File.WriteAllBytesAsync(sourcePath, [1, 2, 3, 4]);
+            var sourceSha256 = await ComputeSha256Async(sourcePath);
+
+            var request = CreateRequest(root, sourcePath, sourceSha256, DateTimeOffset.UtcNow);
+            var provider = new FakeProvisioningProvider(CreateProvisioningMaterial(root, request.NowUtc));
+            var signer = new FakeSigner((signRequest, _) =>
+            {
+                File.WriteAllBytes(signRequest.OutputIpaPath, [9, 9, 9, 9]);
+                return Task.FromResult(new SignedBuildArtifact(signRequest.OutputIpaPath, 4, "deadbeef", TimeSpan.FromSeconds(1)));
+            });
+            var publisher = new FakeBuildPublisher((_, _) => throw new InvalidOperationException("should not publish"));
+
+            var processor = CreateProcessor(provider, signer, publisher);
+            var result = await processor.RunAsync(request, CancellationToken.None);
+
+            Assert.Equal(SigningJobStatus.Failed, result.Job.Status);
+            Assert.Equal(StableErrorCodes.SignedIpaValidationFailed, result.ErrorCode);
+            Assert.False(result.ShouldRetry);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_ShouldPropagateCancellation()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var sourcePath = Path.Combine(root, "sources", "app1", "source.ipa");
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            await File.WriteAllBytesAsync(sourcePath, [1, 2, 3, 4]);
+            var sourceSha256 = await ComputeSha256Async(sourcePath);
+
+            var request = CreateRequest(root, sourcePath, sourceSha256, DateTimeOffset.UtcNow);
+            var provider = new FakeProvisioningProvider(CreateProvisioningMaterial(root, request.NowUtc));
+            var signer = new FakeSigner((_, ct) => Task.FromCanceled<SignedBuildArtifact>(ct));
+            var publisher = new FakeBuildPublisher((_, _) => throw new InvalidOperationException("should not publish"));
+
+            var processor = CreateProcessor(provider, signer, publisher);
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => processor.RunAsync(request, cts.Token));
         }
         finally
         {

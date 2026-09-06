@@ -16,6 +16,16 @@ public sealed class SigningJobProcessor(
     RetryPolicy retryPolicy,
     RefreshPlanner refreshPlanner) : ISigningJobProcessor
 {
+    private enum WorkflowStage
+    {
+        None,
+        Preflight,
+        Provisioning,
+        Signing,
+        Validation,
+        Publishing,
+    }
+
     public Task<SigningJobRunResult> RunAsync(SigningJobRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -29,6 +39,7 @@ public sealed class SigningJobProcessor(
     {
         var now = request.NowUtc;
         var timeline = new List<SigningJobStatus>();
+        var stage = WorkflowStage.None;
 
         try
         {
@@ -41,12 +52,15 @@ public sealed class SigningJobProcessor(
             var jobSourceIpaPath = Path.Combine(workspaceDirectory, "source.ipa");
             var signedIpaPath = Path.Combine(workspaceDirectory, "signed.ipa");
 
+            stage = WorkflowStage.Preflight;
             timeline.Add(SigningJobStatus.Preflight);
             await sourceIpaManager.CopyImmutableSourceToJobAsync(request.App.Source.Path, jobSourceIpaPath, cancellationToken);
 
+            stage = WorkflowStage.Provisioning;
             timeline.Add(SigningJobStatus.Provisioning);
             var provisioning = await provisioningProvider.PrepareAsync(request.Job, request.App, cancellationToken);
 
+            stage = WorkflowStage.Signing;
             timeline.Add(SigningJobStatus.Signing);
             var artifact = await artifactSigner.SignAsync(
                 new SignArtifactRequest(
@@ -61,10 +75,10 @@ public sealed class SigningJobProcessor(
                     MaxProcessOutputBytes: request.Options.MaxProcessOutputBytes),
                 cancellationToken);
 
+            stage = WorkflowStage.Validation;
             timeline.Add(SigningJobStatus.Validation);
-            ValidateSignedBuild(artifact);
+            await ValidateSignedBuildAsync(artifact, cancellationToken);
 
-            timeline.Add(SigningJobStatus.Ready);
             var completedJob = request.Job with { Status = SigningJobStatus.Ready };
 
             var build = new BuildInfo(
@@ -75,6 +89,7 @@ public sealed class SigningJobProcessor(
                 CreatedAt: now,
                 Provisioning: provisioning.Provisioning);
 
+            stage = WorkflowStage.Publishing;
             timeline.Add(SigningJobStatus.Publishing);
             await buildPublisher.PublishAsync(
                 new BuildPublishRequest(
@@ -84,6 +99,8 @@ public sealed class SigningJobProcessor(
                     SignedIpaPath: artifact.Path,
                     NowUtc: now),
                 cancellationToken);
+
+            timeline.Add(SigningJobStatus.Ready);
 
             var runtimeState = new AppRuntimeState(
                 Status: RuntimeStatus.Ready,
@@ -104,9 +121,13 @@ public sealed class SigningJobProcessor(
                 ErrorCode: null,
                 Timeline: timeline);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
-            var errorCode = MapErrorCode(ex);
+            var errorCode = MapErrorCode(ex, stage);
             var nextAttempt = request.Job.Attempt + 1;
             var retryable = retryPolicy.IsRetryable(errorCode);
             var delay = retryable ? retryPolicy.GetDelayForAttempt(nextAttempt) : null;
@@ -172,20 +193,33 @@ public sealed class SigningJobProcessor(
         }
     }
 
-    private static void ValidateSignedBuild(SignedBuildArtifact artifact)
+    private static async Task ValidateSignedBuildAsync(SignedBuildArtifact artifact, CancellationToken cancellationToken)
     {
         if (!File.Exists(artifact.Path) || artifact.SizeBytes <= 0 || string.IsNullOrWhiteSpace(artifact.Sha256))
         {
             throw new SigningWorkflowException(StableErrorCodes.SignedIpaValidationFailed, "Signed build validation failed.");
         }
+
+        var fileInfo = new FileInfo(artifact.Path);
+        if (fileInfo.Length != artifact.SizeBytes)
+        {
+            throw new SigningWorkflowException(StableErrorCodes.SignedIpaValidationFailed, "Signed build validation failed: output size mismatch.");
+        }
+
+        var actualSha256 = await ComputeSha256Async(artifact.Path, cancellationToken);
+        if (!string.Equals(actualSha256, artifact.Sha256, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new SigningWorkflowException(StableErrorCodes.SignedIpaValidationFailed, "Signed build validation failed: output hash mismatch.");
+        }
     }
 
-    private static string MapErrorCode(Exception ex)
+    private static string MapErrorCode(Exception ex, WorkflowStage stage)
         => ex switch
         {
             SigningWorkflowException workflow => workflow.ErrorCode,
             IpaPreflightException preflight => preflight.ErrorCode,
             FileNotFoundException => StableErrorCodes.InvalidIpa,
+            _ when stage == WorkflowStage.Publishing => StableErrorCodes.R2UploadFailed,
             _ when IsSignedValidationFailure(ex) => StableErrorCodes.SignedIpaValidationFailed,
             _ when IsAuthFailure(ex) => StableErrorCodes.AuthRequired,
             _ => StableErrorCodes.ZsignFailed,
