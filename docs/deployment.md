@@ -89,6 +89,21 @@ Current worker defaults are defined in:
 
 - `src/SignManager.Worker/appsettings.json`
 
+## Web IPA management configuration
+
+- Source IPA root directory is configurable via `WebUi.SourceRootDirectory` (default `data/sources`).
+- Upload and preflight safety limits are configurable via `WebUi`:
+	- `UploadMaxBytes`
+	- `UploadMaxEntries`
+	- `UploadMaxTotalExpandedBytes`
+	- `UploadMaxSingleEntryBytes`
+	- `UploadMaxCompressionRatio`
+- Web rejects uploads that exceed `UploadMaxBytes` before temp-file write.
+
+Current web defaults are defined in:
+
+- `src/SignManager.Web/appsettings.json`
+
 ## Backup and restore
 
 Local scripts:

@@ -148,6 +148,83 @@ public class Milestone10WebUiTests
         }
     }
 
+    [Fact]
+    public async Task AddApp_ShouldUseConfiguredSourceRootDirectory()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var sourceRoot = Path.Combine(root, "custom-sources");
+            var options = CreateOptions(root) with { SourceRootDirectory = sourceRoot };
+            var service = CreateService(options);
+            var ipaBytes = CreateValidIpaBytes();
+
+            var result = await service.AddAppAsync(
+                new AddAppRequest(
+                    Name: "Notes",
+                    EffectiveBundleId: "com.vendor.notes",
+                    RemoveExtensions: true,
+                    AutoSign: true,
+                    IntervalHours: 48,
+                    PublishSlug: "notes",
+                    Upload: new UploadIpaRequest(
+                        ipaBytes.Length,
+                        async (target, ct) =>
+                        {
+                            await using var source = new MemoryStream(ipaBytes, writable: false);
+                            await source.CopyToAsync(target, ct);
+                        })),
+                CancellationToken.None);
+
+            var config = await new AppConfigStore().LoadAsync(options.AppConfigPath, CancellationToken.None);
+
+            Assert.NotNull(config);
+            Assert.Equal("notes", result.AppId);
+            Assert.StartsWith(sourceRoot, config!.Apps[0].Source.Path, StringComparison.OrdinalIgnoreCase);
+            Assert.True(File.Exists(config.Apps[0].Source.Path));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task AddApp_ShouldRejectWhenUploadExceedsConfiguredMaxBytes()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var options = CreateOptions(root) with { UploadMaxBytes = 16 };
+            var service = CreateService(options);
+            var ipaBytes = CreateValidIpaBytes();
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.AddAppAsync(
+                    new AddAppRequest(
+                        Name: "Too Large",
+                        EffectiveBundleId: "com.vendor.toolarge",
+                        RemoveExtensions: true,
+                        AutoSign: true,
+                        IntervalHours: 48,
+                        PublishSlug: "too-large",
+                        Upload: new UploadIpaRequest(
+                            ipaBytes.Length,
+                            async (target, ct) =>
+                            {
+                                await using var source = new MemoryStream(ipaBytes, writable: false);
+                                await source.CopyToAsync(target, ct);
+                            })),
+                    CancellationToken.None));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static WebAppService CreateService(WebUiOptions webOptions)
     {
         var options = Options.Create(webOptions);

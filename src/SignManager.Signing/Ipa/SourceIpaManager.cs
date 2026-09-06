@@ -4,6 +4,8 @@ namespace SignManager.Signing.Ipa;
 
 public sealed class SourceIpaManager(IpaPreflightService preflightService)
 {
+    private readonly SemaphoreSlim _replaceLock = new(1, 1);
+
     public async Task<SourceReplaceResult> ReplaceSourceAsync(
         string uploadedIpaPath,
         string immutableSourcePath,
@@ -23,31 +25,50 @@ public sealed class SourceIpaManager(IpaPreflightService preflightService)
 
         var tempPath = $"{immutableSourcePath}.{Guid.NewGuid():N}.tmp";
 
-        await using (var source = File.OpenRead(uploadedIpaPath))
-        await using (var target = File.Create(tempPath))
+        await _replaceLock.WaitAsync(cancellationToken);
+        try
         {
-            await source.CopyToAsync(target, cancellationToken);
-            await target.FlushAsync(cancellationToken);
-        }
+            await using (var source = File.OpenRead(uploadedIpaPath))
+            await using (var target = File.Create(tempPath))
+            {
+                await source.CopyToAsync(target, cancellationToken);
+                await target.FlushAsync(cancellationToken);
+                target.Flush(flushToDisk: true);
+            }
 
-        if (File.Exists(immutableSourcePath))
-        {
-            File.Replace(tempPath, immutableSourcePath, destinationBackupFileName: null);
-        }
-        else
-        {
-            File.Move(tempPath, immutableSourcePath);
-        }
+            if (File.Exists(immutableSourcePath))
+            {
+                File.Replace(tempPath, immutableSourcePath, destinationBackupFileName: null);
+            }
+            else
+            {
+                File.Move(tempPath, immutableSourcePath);
+            }
 
-        var finalSha = await ComputeSha256Async(immutableSourcePath, cancellationToken);
-        return new SourceReplaceResult(
-            immutableSourcePath,
-            finalSha,
-            DateTimeOffset.UtcNow,
-            preflight.Metadata);
+            var finalSha = await ComputeSha256Async(immutableSourcePath, cancellationToken);
+            if (!string.Equals(finalSha, preflight.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Immutable source write integrity check failed: SHA-256 mismatch.");
+            }
+
+            return new SourceReplaceResult(
+                immutableSourcePath,
+                finalSha,
+                DateTimeOffset.UtcNow,
+                preflight.Metadata);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+
+            _replaceLock.Release();
+        }
     }
 
-    public Task CopyImmutableSourceToJobAsync(
+    public async Task CopyImmutableSourceToJobAsync(
         string immutableSourcePath,
         string jobSourcePath,
         CancellationToken cancellationToken)
@@ -64,7 +85,15 @@ public sealed class SourceIpaManager(IpaPreflightService preflightService)
             ?? throw new InvalidOperationException("Job source path must include directory.");
         Directory.CreateDirectory(jobDirectory);
 
-        return CopyFileAsync(immutableSourcePath, jobSourcePath, cancellationToken);
+        await _replaceLock.WaitAsync(cancellationToken);
+        try
+        {
+            await CopyFileAsync(immutableSourcePath, jobSourcePath, cancellationToken);
+        }
+        finally
+        {
+            _replaceLock.Release();
+        }
     }
 
     private static async Task CopyFileAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken)
@@ -73,6 +102,7 @@ public sealed class SourceIpaManager(IpaPreflightService preflightService)
         await using var destination = File.Create(destinationPath);
         await source.CopyToAsync(destination, cancellationToken);
         await destination.FlushAsync(cancellationToken);
+        destination.Flush(flushToDisk: true);
     }
 
     private static async Task<string> ComputeSha256Async(string path, CancellationToken cancellationToken)

@@ -85,12 +85,12 @@ public sealed class WebAppService(
         try
         {
             var appId = CreateAppId(request.PublishSlug, request.Name);
-            var immutableSourcePath = Path.Combine("data", "sources", appId, "source.ipa");
+            var immutableSourcePath = Path.Combine(options.Value.SourceRootDirectory, appId, "source.ipa");
 
             var replace = await sourceIpaManager.ReplaceSourceAsync(
                 uploadedIpaPath: tempIpaPath,
                 immutableSourcePath: immutableSourcePath,
-                limits: new IpaPreflightLimits(),
+                limits: CreatePreflightLimits(),
                 cancellationToken: cancellationToken);
 
             var (config, states) = await LoadConfigAndStateAsync(cancellationToken);
@@ -154,7 +154,7 @@ public sealed class WebAppService(
             var replace = await sourceIpaManager.ReplaceSourceAsync(
                 uploadedIpaPath: tempIpaPath,
                 immutableSourcePath: app.Source.Path,
-                limits: new IpaPreflightLimits(),
+                limits: CreatePreflightLimits(),
                 cancellationToken: cancellationToken);
 
             var updatedApp = app with
@@ -273,6 +273,11 @@ public sealed class WebAppService(
             throw new InvalidOperationException("Uploaded IPA is empty.");
         }
 
+        if (upload.Length > options.Value.UploadMaxBytes)
+        {
+            throw new InvalidOperationException($"Uploaded IPA exceeds max size limit of {options.Value.UploadMaxBytes} bytes.");
+        }
+
         Directory.CreateDirectory(options.Value.UploadTempDirectory);
         var tempPath = Path.Combine(options.Value.UploadTempDirectory, $"{Guid.NewGuid():N}.ipa");
 
@@ -297,6 +302,14 @@ public sealed class WebAppService(
             // Best-effort cleanup for temp uploads.
         }
     }
+
+    private IpaPreflightLimits CreatePreflightLimits()
+        => new(
+            MaxUploadBytes: options.Value.UploadMaxBytes,
+            MaxEntries: options.Value.UploadMaxEntries,
+            MaxTotalExpandedBytes: options.Value.UploadMaxTotalExpandedBytes,
+            MaxSingleEntryBytes: options.Value.UploadMaxSingleEntryBytes,
+            MaxCompressionRatio: options.Value.UploadMaxCompressionRatio);
 
     private static string CreateAppId(string? publishSlug, string name)
     {

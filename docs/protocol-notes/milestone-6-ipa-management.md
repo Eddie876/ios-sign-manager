@@ -28,4 +28,16 @@ Validation status:
 
 - Unit tests cover valid IPA metadata extraction and key rejection paths.
 - Unit tests cover immutable source replace and job copy behavior.
-- Milestone 6 implemented at fixture-test level and ready for Web/Worker integration.
+
+Deploy-ready updates:
+
+- `SourceIpaManager` now serializes replace/copy operations via in-process lock to avoid concurrent read/replace races.
+- Source replace now enforces durability and integrity:
+  - flush temp file to disk before atomic replace/move
+  - verify final immutable file SHA-256 matches preflight hash
+  - guaranteed temp-file cleanup on failure
+- Web upload flow now uses configurable IPA limits and source root path (`WebUiOptions`), removing hardcoded source directory.
+- Added early upload-size rejection in Web layer to reduce oversized temp-file writes.
+- Expanded tests for absolute-entry ZIP rejection and upload-size limit failures.
+
+- Milestone 6 is complete at deploy-ready level.

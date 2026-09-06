@@ -78,6 +78,50 @@ public class IpaPreflightServiceTests
         }
     }
 
+    [Fact]
+    public async Task ValidateAndExtract_ShouldRejectAbsoluteEntryPath()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var ipaPath = IpaFixtureBuilder.CreateAbsolutePathIpa(root);
+            var service = new IpaPreflightService();
+
+            var ex = await Assert.ThrowsAsync<IpaPreflightException>(() =>
+                service.ValidateAndExtractAsync(new IpaPreflightRequest(ipaPath, new IpaPreflightLimits()), CancellationToken.None));
+
+            Assert.Equal(StableErrorCodes.ZipPathTraversal, ex.ErrorCode);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task ValidateAndExtract_ShouldRejectWhenUploadBytesExceedLimit()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var ipaPath = IpaFixtureBuilder.CreateValidIpa(root);
+            var fileSize = new FileInfo(ipaPath).Length;
+            var limits = new IpaPreflightLimits(MaxUploadBytes: fileSize - 1);
+            var service = new IpaPreflightService();
+
+            var ex = await Assert.ThrowsAsync<IpaPreflightException>(() =>
+                service.ValidateAndExtractAsync(new IpaPreflightRequest(ipaPath, limits), CancellationToken.None));
+
+            Assert.Equal(StableErrorCodes.ZipLimitExceeded, ex.ErrorCode);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static string CreateTempRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), "sign-manager-signing-tests", Guid.NewGuid().ToString("N"));

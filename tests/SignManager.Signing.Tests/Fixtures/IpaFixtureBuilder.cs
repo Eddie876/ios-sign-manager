@@ -44,6 +44,17 @@ internal static class IpaFixtureBuilder
         return path;
     }
 
+    public static string CreateAbsolutePathIpa(string rootDirectory)
+    {
+        Directory.CreateDirectory(rootDirectory);
+        var path = Path.Combine(rootDirectory, "absolute.ipa");
+
+        using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
+        WriteTextEntry(archive, "/absolute/evil.txt", "evil");
+
+        return path;
+    }
+
     private static void WriteTextEntry(ZipArchive archive, string path, string content)
     {
         var entry = archive.CreateEntry(path);

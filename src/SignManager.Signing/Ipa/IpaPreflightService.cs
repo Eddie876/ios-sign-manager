@@ -73,12 +73,18 @@ public sealed class IpaPreflightService
 
     private static void ValidateEntryPath(string path)
     {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new IpaPreflightException(StableErrorCodes.ZipPathTraversal, "ZIP entry path is empty.");
+        }
+
         if (path.StartsWith("/", StringComparison.Ordinal) || path.StartsWith("\\", StringComparison.Ordinal))
         {
             throw new IpaPreflightException(StableErrorCodes.ZipPathTraversal, "Absolute ZIP entry path is not allowed.");
         }
 
-        if (path.Contains("..", StringComparison.Ordinal))
+        var segments = path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Any(segment => string.Equals(segment, "..", StringComparison.Ordinal)))
         {
             throw new IpaPreflightException(StableErrorCodes.ZipPathTraversal, "Path traversal entry is not allowed.");
         }
