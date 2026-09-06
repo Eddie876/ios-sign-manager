@@ -1,6 +1,7 @@
 using SignManager.Infrastructure.Persistence;
 using SignManager.Signing.Ipa;
 using SignManager.Web.Services;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +12,10 @@ builder.Logging.AddJsonConsole(options =>
 });
 
 builder.Services.AddRazorPages();
-builder.Services.AddHealthChecks();
+builder.Services
+    .AddHealthChecks()
+    .AddCheck("live", () => HealthCheckResult.Healthy(), tags: ["live"])
+    .AddCheck<OperationalReadinessHealthCheck>("operational-readiness", tags: ["ready"]);
 builder.Services.Configure<WebUiOptions>(builder.Configuration.GetSection("WebUi"));
 
 builder.Services.AddSingleton<AppConfigStore>();
@@ -39,8 +43,15 @@ app.UseRouting();
 
 app.UseAuthorization();
 
-app.MapHealthChecks("/health/live");
-app.MapHealthChecks("/health/ready");
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+});
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+});
 
 app.MapGet("/api/shortcut/refresh-plan", async (
     HttpContext httpContext,
