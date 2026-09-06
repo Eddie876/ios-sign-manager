@@ -44,6 +44,23 @@ Enable in `src/SignManager.Worker/appsettings.json` under `Scheduler`:
 }
 ```
 
+## Apple login operations
+
+Initial login and token refresh are performed via CLI inside container:
+
+```powershell
+docker compose -f docker/docker-compose.yml exec sign-manager dotnet /app/cli/SignManager.Cli.dll apple login
+docker compose -f docker/docker-compose.yml exec sign-manager dotnet /app/cli/SignManager.Cli.dll apple restore
+```
+
+Related environment variables:
+
+- `SIGNMANAGER_ANISETTE_BASE_URL`
+- `SIGNMANAGER_APPLE_GRANDSLAM_BASE_URL`
+- `SIGNMANAGER_APPLE_DEVELOPER_BASE_URL`
+- `SIGNMANAGER_SIGNING_STATE_PATH`
+- `SIGNMANAGER_MASTER_KEY_PATH`
+
 ## Backup and restore
 
 Local scripts:

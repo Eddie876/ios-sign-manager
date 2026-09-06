@@ -5,6 +5,7 @@ COPY . .
 RUN dotnet restore ios-sign-manager.slnx
 RUN dotnet publish src/SignManager.Web/SignManager.Web.csproj -c Release -o /app/web
 RUN dotnet publish src/SignManager.Worker/SignManager.Worker.csproj -c Release -o /app/worker
+RUN dotnet publish src/SignManager.Cli/SignManager.Cli.csproj -c Release -o /app/cli
 
 FROM ubuntu:22.04 AS zsign-build
 ARG ZSIGN_REPO=https://github.com/zhlynn/zsign.git
@@ -35,6 +36,7 @@ RUN groupadd --gid 10001 appgroup \
 
 COPY --from=build /app/web ./web
 COPY --from=build /app/worker ./worker
+COPY --from=build /app/cli ./cli
 COPY --from=zsign-build /usr/local/bin/zsign /usr/local/bin/zsign
 
 RUN chown -R appuser:appgroup /app

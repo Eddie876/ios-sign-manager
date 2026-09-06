@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/SignManager.Apple/SignManager.Apple.csproj" />
+    <Project Path="src/SignManager.Cli/SignManager.Cli.csproj" />
     <Project Path="src/SignManager.Core/SignManager.Core.csproj" />
     <Project Path="src/SignManager.Infrastructure/SignManager.Infrastructure.csproj" />
     <Project Path="src/SignManager.Signing/SignManager.Signing.csproj" />
@@ -12,6 +13,6 @@
     <Project Path="tests/SignManager.Core.Tests/SignManager.Core.Tests.csproj" />
     <Project Path="tests/SignManager.IntegrationTests/SignManager.IntegrationTests.csproj" />
     <Project Path="tests/SignManager.Signing.Tests/SignManager.Signing.Tests.csproj" />
-     <Project Path="tests/SignManager.Worker.Tests/SignManager.Worker.Tests.csproj" />
+    <Project Path="tests/SignManager.Worker.Tests/SignManager.Worker.Tests.csproj" />
   </Folder>
 </Solution>

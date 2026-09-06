@@ -234,7 +234,7 @@ public sealed class WebAppService(
             TeamId: settings.TeamId,
             SessionStatus: settings.SessionStatus,
             CertificateStatus: settings.CertificateStatus,
-            LoginCommand: "docker compose exec sign-manager dotnet SignManager.Cli.dll apple login");
+            LoginCommand: "docker compose exec sign-manager dotnet /app/cli/SignManager.Cli.dll apple login");
     }
 
     public async Task<AppReplaceSummaryViewModel?> GetAppReplaceSummaryAsync(string appId, CancellationToken cancellationToken)
