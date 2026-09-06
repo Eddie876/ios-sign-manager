@@ -1,7 +1,10 @@
+using SignManager.Core.Constants;
 using SignManager.Core.Models;
+using SignManager.Core.Policies;
 using SignManager.Core.Services;
 using SignManager.Infrastructure.Notifications;
 using SignManager.Infrastructure.Persistence;
+using SignManager.Signing.Ipa;
 
 namespace SignManager.Worker.Signing;
 
@@ -11,6 +14,7 @@ public sealed class WorkerSigningScheduler(
     RefreshPlanner refreshPlanner,
     ISigningJobProcessor jobProcessor,
     ManualSignTriggerStore manualSignTriggerStore,
+    RetryPolicy retryPolicy,
     IExceptionNotifier notifier)
 {
     public bool RequestManualSign(string appId)
@@ -73,7 +77,20 @@ public sealed class WorkerSigningScheduler(
                     MaxProcessOutputBytes: options.MaxProcessOutputBytes),
                 NowUtc: now);
 
-            var result = await jobProcessor.RunAsync(request, cancellationToken);
+            SigningJobRunResult result;
+            try
+            {
+                result = await jobProcessor.RunAsync(request, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                result = BuildFallbackFailureResult(request, runtimeState, now, ex);
+            }
+
             states[app.Id] = ApplyPostRunState(result, now);
             await SaveStateAsync(options.AppStatePath, states, cancellationToken);
 
@@ -159,6 +176,51 @@ public sealed class WorkerSigningScheduler(
 
         return result.RuntimeState;
     }
+
+    private SigningJobRunResult BuildFallbackFailureResult(
+        SigningJobRequest request,
+        AppRuntimeState? currentState,
+        DateTimeOffset now,
+        Exception ex)
+    {
+        var errorCode = MapFallbackErrorCode(ex);
+        var nextAttempt = request.Job.Attempt + 1;
+        var retryable = retryPolicy.IsRetryable(errorCode);
+        var delay = retryable ? retryPolicy.GetDelayForAttempt(nextAttempt) : null;
+        var shouldRetry = retryable && delay is not null;
+
+        var runtimeStatus = errorCode == StableErrorCodes.AuthRequired
+            ? RuntimeStatus.AuthRequired
+            : RuntimeStatus.Failed;
+
+        var runtimeState = currentState is null
+            ? new AppRuntimeState(runtimeStatus, null, null, null, null, null, null, errorCode)
+            : currentState with { Status = runtimeStatus, LastErrorCode = errorCode };
+
+        return new SigningJobRunResult(
+            Job: request.Job with
+            {
+                Status = SigningJobStatus.Failed,
+                Attempt = nextAttempt,
+            },
+            Build: null,
+            RuntimeState: runtimeState,
+            ShouldRetry: shouldRetry,
+            NextRetryAt: shouldRetry ? now + delay : null,
+            ErrorCode: errorCode,
+            Timeline: [SigningJobStatus.Failed]);
+    }
+
+    private static string MapFallbackErrorCode(Exception ex)
+        => ex switch
+        {
+            SigningWorkflowException workflow => workflow.ErrorCode,
+            IpaPreflightException preflight => preflight.ErrorCode,
+            FileNotFoundException => StableErrorCodes.InvalidIpa,
+            InvalidOperationException invalidOperation when invalidOperation.Message.Contains("auth", StringComparison.OrdinalIgnoreCase)
+                => StableErrorCodes.AuthRequired,
+            _ => StableErrorCodes.ZsignFailed,
+        };
 
     private static string BuildJobId(string appId, DateTimeOffset now)
         => $"{now:yyyyMMddHHmmss}-{appId}-{Guid.NewGuid():N}";

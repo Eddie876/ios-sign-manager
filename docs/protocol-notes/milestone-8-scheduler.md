@@ -30,7 +30,14 @@ Validation status:
 - New scheduler tests cover due trigger, auth-required skip, manual override, retry persistence, and pending-state idempotency.
 - Full solution tests are green.
 
+Deploy-ready updates:
+
+- Scheduler now isolates per-app execution failures so one crashing app does not abort the entire scan loop.
+- Fallback failure mapping added in scheduler for unexpected processor exceptions, with stable error codes and retry-window persistence.
+- Fallback path updates runtime state from `Pending` to `Failed/AuthRequired`, preventing app state from getting stuck in pending after thrown exceptions.
+- Added scheduler tests for multi-app scan continuity and non-retryable fallback failure persistence + notification.
+
 Status:
 
-- Milestone 8 is complete at fixture-test level.
+- Milestone 8 is complete at deploy-ready level.
 - Milestone 9 can now build on stable scheduler-triggered signing orchestration.

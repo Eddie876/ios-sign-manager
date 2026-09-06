@@ -122,6 +122,8 @@ Examples:
 
 - Worker periodically cleans old job directories under `WorkspaceRoot`.
 - Controlled by `Scheduler.CleanupMaxAgeHours` (default 72h).
+- Scheduler scan now isolates per-app execution failures; a single app fault will not abort processing for other apps in the same scan.
+- Unexpected per-app processor exceptions are converted to stable fallback error codes with retry/non-retry behavior persisted in `state.json`.
 
 Manual cleanup script:
 

@@ -1,4 +1,6 @@
+using SignManager.Core.Constants;
 using SignManager.Core.Models;
+using SignManager.Core.Policies;
 using SignManager.Core.Services;
 using SignManager.Infrastructure.Notifications;
 using SignManager.Infrastructure.Persistence;
@@ -183,12 +185,96 @@ public class WorkerSigningSchedulerTests
                 new RefreshPlanner(),
                 processor,
                 new ManualSignTriggerStore(),
+                new RetryPolicy(),
                 notifier);
 
             await scheduler.RunScanOnceAsync(CreateOptions(paths), now, CancellationToken.None);
 
             Assert.Single(notifier.Alerts);
             Assert.Equal("INVALID_IPA", notifier.Alerts[0].ErrorCode);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task RunScanOnce_ShouldContinueOtherApps_WhenProcessorThrowsForOneApp()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var paths = CreatePaths(root);
+            var now = new DateTimeOffset(2026, 9, 6, 10, 0, 0, TimeSpan.Zero);
+            await SaveTwoAppConfigAsync(paths.ConfigPath, now);
+
+            var processor = new FakeJobProcessor((request, _) =>
+            {
+                if (string.Equals(request.App.Id, "app1", StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException("transient signer fault");
+                }
+
+                return Task.FromResult(CreateSuccessResult(request, now));
+            });
+
+            var scheduler = CreateScheduler(processor);
+            var result = await scheduler.RunScanOnceAsync(CreateOptions(paths), now, CancellationToken.None);
+
+            Assert.Equal(2, result.ScannedApps);
+            Assert.Equal(2, result.TriggeredJobs);
+            Assert.Equal(2, processor.Calls.Count);
+
+            var state = await new AppStateStore().LoadAsync(paths.StatePath, CancellationToken.None);
+            Assert.NotNull(state);
+            Assert.Equal(RuntimeStatus.Failed, state!.Apps["app1"].Status);
+            Assert.Equal(StableErrorCodes.ZsignFailed, state.Apps["app1"].LastErrorCode);
+            Assert.NotNull(state.Apps["app1"].NextSignDueAt);
+            Assert.Equal(now.AddMinutes(15), state.Apps["app1"].NextSignDueAt);
+            Assert.Equal(RuntimeStatus.Ready, state.Apps["app2"].Status);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task RunScanOnce_ShouldPersistNonRetryableFallbackFailure_AndNotify()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var paths = CreatePaths(root);
+            var now = new DateTimeOffset(2026, 9, 6, 10, 0, 0, TimeSpan.Zero);
+            await SaveSingleAppConfigAsync(paths.ConfigPath, now);
+
+            var processor = new FakeJobProcessor((_, _) =>
+                throw new SigningWorkflowException(StableErrorCodes.InvalidIpa, "bad source"));
+
+            var notifier = new CapturingNotifier();
+            var scheduler = new WorkerSigningScheduler(
+                new AppConfigStore(),
+                new AppStateStore(),
+                new RefreshPlanner(),
+                processor,
+                new ManualSignTriggerStore(),
+                new RetryPolicy(),
+                notifier);
+
+            await scheduler.RunScanOnceAsync(CreateOptions(paths), now, CancellationToken.None);
+
+            var state = await new AppStateStore().LoadAsync(paths.StatePath, CancellationToken.None);
+            Assert.NotNull(state);
+            Assert.Equal(RuntimeStatus.Failed, state!.Apps["app1"].Status);
+            Assert.Equal(StableErrorCodes.InvalidIpa, state.Apps["app1"].LastErrorCode);
+            Assert.Null(state.Apps["app1"].NextSignDueAt);
+
+            Assert.Single(notifier.Alerts);
+            Assert.Equal(StableErrorCodes.InvalidIpa, notifier.Alerts[0].ErrorCode);
         }
         finally
         {
@@ -203,6 +289,7 @@ public class WorkerSigningSchedulerTests
             new RefreshPlanner(),
             processor,
             new ManualSignTriggerStore(),
+            new RetryPolicy(),
             new CapturingNotifier());
 
     private static SchedulerOptions CreateOptions((string ConfigPath, string StatePath, string WorkspaceRoot) paths)
@@ -288,6 +375,41 @@ public class WorkerSigningSchedulerTests
                     Signing: new AppSigningConfig(true),
                     Schedule: new AppScheduleConfig(true, 48),
                     Publish: new AppPublishConfig("app-one"))
+            ]);
+
+        var dir = Path.GetDirectoryName(configPath);
+        if (!string.IsNullOrWhiteSpace(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        await new AppConfigStore().SaveAsync(configPath, config, CancellationToken.None);
+    }
+
+    private static async Task SaveTwoAppConfigAsync(string configPath, DateTimeOffset now)
+    {
+        var config = new AppConfig(
+            Version: AppConfigStore.CurrentVersion,
+            Apps:
+            [
+                new ManagedAppConfig(
+                    Id: "app1",
+                    Name: "App One",
+                    Enabled: true,
+                    Source: new SourceArtifact(Path.Combine(Path.GetTempPath(), "source1.ipa"), "sha-1", now.AddDays(-1)),
+                    Identity: new BundleIdentity("com.source.one", "com.target.one"),
+                    Signing: new AppSigningConfig(true),
+                    Schedule: new AppScheduleConfig(true, 48),
+                    Publish: new AppPublishConfig("app-one")),
+                new ManagedAppConfig(
+                    Id: "app2",
+                    Name: "App Two",
+                    Enabled: true,
+                    Source: new SourceArtifact(Path.Combine(Path.GetTempPath(), "source2.ipa"), "sha-2", now.AddDays(-1)),
+                    Identity: new BundleIdentity("com.source.two", "com.target.two"),
+                    Signing: new AppSigningConfig(true),
+                    Schedule: new AppScheduleConfig(true, 48),
+                    Publish: new AppPublishConfig("app-two"))
             ]);
 
         var dir = Path.GetDirectoryName(configPath);
