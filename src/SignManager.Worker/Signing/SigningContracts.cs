@@ -106,6 +106,10 @@ public sealed class SchedulerOptions
         int MaxProcessOutputBytes = 256 * 1024,
         int ZsignTimeoutSeconds = 1200,
         int CleanupMaxAgeHours = 72,
+        string LocalBuildsRoot = "data/builds",
+        int LocalBuildsKeepLatestPerApp = 3,
+        int R2VersionedRetentionDays = 30,
+        int R2VersionedKeepLatestBuildsPerApp = 3,
         int ProfileMinimumFreshHours = 144,
         string AppleDeviceUdid = "",
         string AppleDeviceName = "",
@@ -137,6 +141,10 @@ public sealed class SchedulerOptions
         this.MaxProcessOutputBytes = MaxProcessOutputBytes;
         this.ZsignTimeoutSeconds = ZsignTimeoutSeconds;
         this.CleanupMaxAgeHours = CleanupMaxAgeHours;
+        this.LocalBuildsRoot = LocalBuildsRoot;
+        this.LocalBuildsKeepLatestPerApp = LocalBuildsKeepLatestPerApp;
+        this.R2VersionedRetentionDays = R2VersionedRetentionDays;
+        this.R2VersionedKeepLatestBuildsPerApp = R2VersionedKeepLatestBuildsPerApp;
         this.ProfileMinimumFreshHours = ProfileMinimumFreshHours;
         this.AppleDeviceUdid = AppleDeviceUdid;
         this.AppleDeviceName = AppleDeviceName;
@@ -176,6 +184,14 @@ public sealed class SchedulerOptions
     public int ZsignTimeoutSeconds { get; set; }
 
     public int CleanupMaxAgeHours { get; set; }
+
+    public string LocalBuildsRoot { get; set; }
+
+    public int LocalBuildsKeepLatestPerApp { get; set; }
+
+    public int R2VersionedRetentionDays { get; set; }
+
+    public int R2VersionedKeepLatestBuildsPerApp { get; set; }
 
     public int ProfileMinimumFreshHours { get; set; }
 

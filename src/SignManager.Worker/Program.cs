@@ -51,6 +51,7 @@ builder.Services.PostConfigure<SchedulerOptions>(options =>
 		options.AppConfigPath = $"{normalized}/config/apps.json";
 		options.AppStatePath = $"{normalized}/state/state.json";
 		options.WorkspaceRoot = $"{normalized}/jobs";
+		options.LocalBuildsRoot = $"{normalized}/builds";
 	}
 
 	if (!string.IsNullOrWhiteSpace(signingStatePath))
@@ -225,6 +226,8 @@ builder.Services.AddSingleton<IBuildPublisher, R2BuildPublisher>();
 builder.Services.AddSingleton<ISigningJobProcessor, SigningJobProcessor>();
 builder.Services.AddSingleton<ManualSignTriggerStore>();
 builder.Services.AddSingleton<JobWorkspaceCleanupService>();
+builder.Services.AddSingleton<LocalBuildRetentionCleanupService>();
+builder.Services.AddSingleton<R2VersionedBuildCleanupService>();
 
 builder.Services.AddSingleton<IExceptionNotifier>(serviceProvider =>
 {

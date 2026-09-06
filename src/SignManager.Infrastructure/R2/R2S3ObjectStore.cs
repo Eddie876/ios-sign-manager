@@ -73,6 +73,28 @@ public sealed class R2S3ObjectStore : IR2ObjectStore
         }
     }
 
+    public async Task<IReadOnlyList<R2ObjectInfo>> ListObjectsAsync(string prefix, CancellationToken cancellationToken)
+    {
+        var result = new List<R2ObjectInfo>();
+        string? continuationToken = null;
+
+        do
+        {
+            var response = await _s3Client.ListObjectsV2Async(new ListObjectsV2Request
+            {
+                BucketName = _bucket,
+                Prefix = prefix ?? string.Empty,
+                ContinuationToken = continuationToken,
+            }, cancellationToken);
+
+            result.AddRange(response.S3Objects.Select(x => new R2ObjectInfo(x.Key, x.LastModified.ToUniversalTime())));
+            continuationToken = response.IsTruncated ? response.NextContinuationToken : null;
+        }
+        while (!string.IsNullOrWhiteSpace(continuationToken));
+
+        return result;
+    }
+
     public static bool IsConfigured(string? endpoint, string? bucket, string? accessKeyId, string? secretAccessKey)
         => !string.IsNullOrWhiteSpace(endpoint)
             && !string.IsNullOrWhiteSpace(bucket)

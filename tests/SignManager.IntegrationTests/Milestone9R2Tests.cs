@@ -184,6 +184,13 @@ public class Milestone9R2Tests
 
         public Task<bool> ObjectExistsAsync(string key, CancellationToken cancellationToken)
             => Task.FromResult(_objects.ContainsKey(key));
+
+        public Task<IReadOnlyList<R2ObjectInfo>> ListObjectsAsync(string prefix, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<R2ObjectInfo>>(
+                _objects.Keys
+                    .Where(x => x.StartsWith(prefix ?? string.Empty, StringComparison.Ordinal))
+                    .Select(x => new R2ObjectInfo(x, DateTimeOffset.UtcNow))
+                    .ToArray());
     }
 
     private sealed class VerifyFailingObjectStore(string missingOnExistsSegment) : IR2ObjectStore
@@ -216,5 +223,12 @@ public class Milestone9R2Tests
 
             return Task.FromResult(_objects.ContainsKey(key));
         }
+
+        public Task<IReadOnlyList<R2ObjectInfo>> ListObjectsAsync(string prefix, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<R2ObjectInfo>>(
+                _objects.Keys
+                    .Where(x => x.StartsWith(prefix ?? string.Empty, StringComparison.Ordinal))
+                    .Select(x => new R2ObjectInfo(x, DateTimeOffset.UtcNow))
+                    .ToArray());
     }
 }

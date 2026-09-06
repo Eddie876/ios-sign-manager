@@ -7,12 +7,18 @@ public interface IR2ObjectStore
     Task DeleteObjectIfExistsAsync(string key, CancellationToken cancellationToken);
 
     Task<bool> ObjectExistsAsync(string key, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<R2ObjectInfo>> ListObjectsAsync(string prefix, CancellationToken cancellationToken);
 }
 
 public sealed record R2PutObjectRequest(
     string Key,
     string ContentType,
     byte[] Content);
+
+public sealed record R2ObjectInfo(
+    string Key,
+    DateTimeOffset LastModifiedUtc);
 
 public sealed class R2PublishException(string errorCode, string message, Exception? innerException = null)
     : InvalidOperationException(message, innerException)

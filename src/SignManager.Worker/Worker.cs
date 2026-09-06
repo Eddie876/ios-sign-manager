@@ -9,6 +9,8 @@ public sealed class Worker(
     ILogger<Worker> logger,
     WorkerSigningScheduler scheduler,
     JobWorkspaceCleanupService cleanupService,
+    LocalBuildRetentionCleanupService localBuildCleanupService,
+    R2VersionedBuildCleanupService r2BuildCleanupService,
     IExceptionNotifier notifier,
     IOptions<SchedulerOptions> schedulerOptions) : BackgroundService
 {
@@ -40,6 +42,28 @@ public sealed class Worker(
                     cleanup.ScannedDirectories,
                     cleanup.DeletedDirectories,
                     cleanup.FailedDirectories);
+
+                var localBuildCleanup = localBuildCleanupService.Cleanup(
+                    options.LocalBuildsRoot,
+                    options.LocalBuildsKeepLatestPerApp);
+
+                logger.LogInformation(
+                    "Local build retention cleanup completed. scanned={ScannedDirectories}, deleted={DeletedDirectories}, failed={FailedDirectories}",
+                    localBuildCleanup.ScannedDirectories,
+                    localBuildCleanup.DeletedDirectories,
+                    localBuildCleanup.FailedDirectories);
+
+                var r2Cleanup = await r2BuildCleanupService.CleanupAsync(
+                    options.R2VersionedRetentionDays,
+                    options.R2VersionedKeepLatestBuildsPerApp,
+                    DateTimeOffset.UtcNow,
+                    stoppingToken);
+
+                logger.LogInformation(
+                    "R2 versioned build cleanup completed. scanned={ScannedObjects}, deleted={DeletedObjects}, failed={FailedObjects}",
+                    r2Cleanup.ScannedDirectories,
+                    r2Cleanup.DeletedDirectories,
+                    r2Cleanup.FailedDirectories);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
