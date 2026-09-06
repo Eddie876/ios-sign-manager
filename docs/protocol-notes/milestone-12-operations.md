@@ -24,9 +24,12 @@ Scope covered in code and tests:
   - memory and pid limits for web, worker, and anisette services
 - Cleanup support added:
   - worker job-workspace cleanup service with max age policy
+  - worker local-build retention cleanup (keep latest N per app)
+  - worker R2 versioned-build retention cleanup (age + keep-latest policy)
   - cleanup isolates per-directory delete failures and continues processing
   - manual cleanup script for operations
   - worker test validates old-directory cleanup behavior
+  - scheduler loop Telegram alert message sanitized; detailed exception text stays in logs
 - Deployment documentation expanded with runbook-level steps.
 
 Implementation files:

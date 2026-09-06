@@ -34,6 +34,11 @@ Worker supports exception alerts for:
 - non-retryable signing failures
 - scheduler loop failures
 
+Security behavior:
+
+- scheduler loop alerts use a sanitized generic message
+- detailed exception text remains in structured logs
+
 Enable in `src/SignManager.Worker/appsettings.json` under `Scheduler`:
 
 ```json
@@ -151,6 +156,10 @@ Operational safeguards:
 - Cleanup now isolates per-directory delete failures; one locked/broken directory will not abort the entire cleanup pass.
 - Scheduler scan now isolates per-app execution failures; a single app fault will not abort processing for other apps in the same scan.
 - Unexpected per-app processor exceptions are converted to stable fallback error codes with retry/non-retry behavior persisted in `state.json`.
+- Worker keeps only latest N local build directories per app (`Scheduler.LocalBuildsKeepLatestPerApp`, default 3).
+- Worker cleans R2 versioned build objects with combined age/count policy:
+	- `Scheduler.R2VersionedRetentionDays` (default 30)
+	- `Scheduler.R2VersionedKeepLatestBuildsPerApp` (default 3)
 
 Manual cleanup script:
 
