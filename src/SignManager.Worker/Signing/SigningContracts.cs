@@ -121,6 +121,10 @@ public sealed class SchedulerOptions
         string AppleDeveloperBaseUrl = "http://apple-gateway.local/",
         int AppleHttpTimeoutSeconds = 30,
         string OtaPublicBaseUrl = "https://ios.example.com",
+        string R2Endpoint = "",
+        string R2Bucket = "",
+        string R2AccessKeyId = "",
+        string R2SecretAccessKey = "",
         bool TelegramAlertsEnabled = false,
         string? TelegramBotToken = null,
         string? TelegramChatId = null)
@@ -148,6 +152,10 @@ public sealed class SchedulerOptions
         this.AppleDeveloperBaseUrl = AppleDeveloperBaseUrl;
         this.AppleHttpTimeoutSeconds = AppleHttpTimeoutSeconds;
         this.OtaPublicBaseUrl = OtaPublicBaseUrl;
+        this.R2Endpoint = R2Endpoint;
+        this.R2Bucket = R2Bucket;
+        this.R2AccessKeyId = R2AccessKeyId;
+        this.R2SecretAccessKey = R2SecretAccessKey;
         this.TelegramAlertsEnabled = TelegramAlertsEnabled;
         this.TelegramBotToken = TelegramBotToken;
         this.TelegramChatId = TelegramChatId;
@@ -198,6 +206,14 @@ public sealed class SchedulerOptions
     public int AppleHttpTimeoutSeconds { get; set; }
 
     public string OtaPublicBaseUrl { get; set; }
+
+    public string R2Endpoint { get; set; }
+
+    public string R2Bucket { get; set; }
+
+    public string R2AccessKeyId { get; set; }
+
+    public string R2SecretAccessKey { get; set; }
 
     public bool TelegramAlertsEnabled { get; set; }
 

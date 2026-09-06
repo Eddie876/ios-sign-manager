@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="3.7.412.3" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SignManager.Core\SignManager.Core.csproj" />
   </ItemGroup>
 

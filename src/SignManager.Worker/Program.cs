@@ -35,6 +35,10 @@ builder.Services.PostConfigure<SchedulerOptions>(options =>
 	var masterKeyPath = Environment.GetEnvironmentVariable("SIGNMANAGER_MASTER_KEY_PATH");
 	var zsignExecutablePath = Environment.GetEnvironmentVariable("SIGNMANAGER_ZSIGN_PATH");
 	var publicBaseUrl = Environment.GetEnvironmentVariable("SIGNMANAGER_PUBLIC_BASE_URL");
+	var r2Endpoint = Environment.GetEnvironmentVariable("SIGNMANAGER_R2_ENDPOINT");
+	var r2Bucket = Environment.GetEnvironmentVariable("SIGNMANAGER_R2_BUCKET");
+	var r2AccessKeyId = Environment.GetEnvironmentVariable("SIGNMANAGER_R2_ACCESS_KEY_ID");
+	var r2SecretAccessKey = Environment.GetEnvironmentVariable("SIGNMANAGER_R2_SECRET_ACCESS_KEY");
 
 	var deviceUdid = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVICE_UDID");
 	var deviceName = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVICE_NAME");
@@ -86,6 +90,26 @@ builder.Services.PostConfigure<SchedulerOptions>(options =>
 		options.OtaPublicBaseUrl = publicBaseUrl;
 	}
 
+	if (!string.IsNullOrWhiteSpace(r2Endpoint))
+	{
+		options.R2Endpoint = r2Endpoint;
+	}
+
+	if (!string.IsNullOrWhiteSpace(r2Bucket))
+	{
+		options.R2Bucket = r2Bucket;
+	}
+
+	if (!string.IsNullOrWhiteSpace(r2AccessKeyId))
+	{
+		options.R2AccessKeyId = r2AccessKeyId;
+	}
+
+	if (!string.IsNullOrWhiteSpace(r2SecretAccessKey))
+	{
+		options.R2SecretAccessKey = r2SecretAccessKey;
+	}
+
 	if (!string.IsNullOrWhiteSpace(deviceUdid))
 	{
 		options.AppleDeviceUdid = deviceUdid;
@@ -113,7 +137,23 @@ builder.Services.AddSingleton<RefreshPlanner>();
 builder.Services.AddSingleton<RetryPolicy>();
 builder.Services.AddSingleton<R2ObjectKeyPlanner>();
 builder.Services.AddSingleton<OtaManifestGenerator>();
-builder.Services.AddSingleton<IR2ObjectStore, InMemoryR2ObjectStore>();
+builder.Services.AddSingleton<IR2ObjectStore>(serviceProvider =>
+{
+	var options = serviceProvider.GetRequiredService<IOptions<SchedulerOptions>>().Value;
+	var environment = serviceProvider.GetRequiredService<IHostEnvironment>();
+
+	if (R2S3ObjectStore.IsConfigured(options.R2Endpoint, options.R2Bucket, options.R2AccessKeyId, options.R2SecretAccessKey))
+	{
+		return new R2S3ObjectStore(options.R2Endpoint, options.R2Bucket, options.R2AccessKeyId, options.R2SecretAccessKey);
+	}
+
+	if (environment.IsDevelopment())
+	{
+		return new InMemoryR2ObjectStore();
+	}
+
+	throw new InvalidOperationException("R2 is not configured. Set SIGNMANAGER_R2_ENDPOINT, SIGNMANAGER_R2_BUCKET, SIGNMANAGER_R2_ACCESS_KEY_ID, and SIGNMANAGER_R2_SECRET_ACCESS_KEY.");
+});
 builder.Services.AddSingleton<R2ReleasePublisher>();
 builder.Services.AddSingleton<DataBackupService>();
 
