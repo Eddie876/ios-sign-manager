@@ -95,18 +95,112 @@ public sealed class SigningWorkflowException(string errorCode, string message, E
     public string ErrorCode { get; } = errorCode;
 }
 
-public sealed record SchedulerOptions(
-    string AppConfigPath = "data/apps.json",
-    string AppStatePath = "data/state.json",
-    string WorkspaceRoot = "data/jobs",
-    string ZsignExecutablePath = "zsign",
-    int ScanIntervalSeconds = 30,
-    int MaxProcessOutputBytes = 256 * 1024,
-    int ZsignTimeoutSeconds = 1200,
-    int CleanupMaxAgeHours = 72,
-    bool TelegramAlertsEnabled = false,
-    string? TelegramBotToken = null,
-    string? TelegramChatId = null);
+public sealed class SchedulerOptions
+{
+    public SchedulerOptions(
+        string AppConfigPath = "data/config/apps.json",
+        string AppStatePath = "data/state/state.json",
+        string WorkspaceRoot = "data/jobs",
+        string ZsignExecutablePath = "zsign",
+        int ScanIntervalSeconds = 30,
+        int MaxProcessOutputBytes = 256 * 1024,
+        int ZsignTimeoutSeconds = 1200,
+        int CleanupMaxAgeHours = 72,
+        int ProfileMinimumFreshHours = 144,
+        string AppleDeviceUdid = "",
+        string AppleDeviceName = "",
+        string? AppleTeamId = null,
+        string AppleProfileNamePrefix = "signmanager",
+        string ApplePrivateKeyPassword = "",
+        string SigningStateRoot = "/signing-state",
+        string AppleSessionSecretsPath = "/signing-state/secrets.enc",
+        string AppleSessionMasterKeyPath = "/run/secrets/signmanager_master_key",
+        string AppleAnisetteBaseUrl = "http://anisette:6969/",
+        string AppleAnisetteHeadersPath = "headers",
+        string AppleGrandSlamBaseUrl = "http://apple-gateway.local/",
+        string AppleDeveloperBaseUrl = "http://apple-gateway.local/",
+        int AppleHttpTimeoutSeconds = 30,
+        bool TelegramAlertsEnabled = false,
+        string? TelegramBotToken = null,
+        string? TelegramChatId = null)
+    {
+        this.AppConfigPath = AppConfigPath;
+        this.AppStatePath = AppStatePath;
+        this.WorkspaceRoot = WorkspaceRoot;
+        this.ZsignExecutablePath = ZsignExecutablePath;
+        this.ScanIntervalSeconds = ScanIntervalSeconds;
+        this.MaxProcessOutputBytes = MaxProcessOutputBytes;
+        this.ZsignTimeoutSeconds = ZsignTimeoutSeconds;
+        this.CleanupMaxAgeHours = CleanupMaxAgeHours;
+        this.ProfileMinimumFreshHours = ProfileMinimumFreshHours;
+        this.AppleDeviceUdid = AppleDeviceUdid;
+        this.AppleDeviceName = AppleDeviceName;
+        this.AppleTeamId = AppleTeamId;
+        this.AppleProfileNamePrefix = AppleProfileNamePrefix;
+        this.ApplePrivateKeyPassword = ApplePrivateKeyPassword;
+        this.SigningStateRoot = SigningStateRoot;
+        this.AppleSessionSecretsPath = AppleSessionSecretsPath;
+        this.AppleSessionMasterKeyPath = AppleSessionMasterKeyPath;
+        this.AppleAnisetteBaseUrl = AppleAnisetteBaseUrl;
+        this.AppleAnisetteHeadersPath = AppleAnisetteHeadersPath;
+        this.AppleGrandSlamBaseUrl = AppleGrandSlamBaseUrl;
+        this.AppleDeveloperBaseUrl = AppleDeveloperBaseUrl;
+        this.AppleHttpTimeoutSeconds = AppleHttpTimeoutSeconds;
+        this.TelegramAlertsEnabled = TelegramAlertsEnabled;
+        this.TelegramBotToken = TelegramBotToken;
+        this.TelegramChatId = TelegramChatId;
+    }
+
+    public string AppConfigPath { get; set; }
+
+    public string AppStatePath { get; set; }
+
+    public string WorkspaceRoot { get; set; }
+
+    public string ZsignExecutablePath { get; set; }
+
+    public int ScanIntervalSeconds { get; set; }
+
+    public int MaxProcessOutputBytes { get; set; }
+
+    public int ZsignTimeoutSeconds { get; set; }
+
+    public int CleanupMaxAgeHours { get; set; }
+
+    public int ProfileMinimumFreshHours { get; set; }
+
+    public string AppleDeviceUdid { get; set; }
+
+    public string AppleDeviceName { get; set; }
+
+    public string? AppleTeamId { get; set; }
+
+    public string AppleProfileNamePrefix { get; set; }
+
+    public string ApplePrivateKeyPassword { get; set; }
+
+    public string SigningStateRoot { get; set; }
+
+    public string AppleSessionSecretsPath { get; set; }
+
+    public string AppleSessionMasterKeyPath { get; set; }
+
+    public string AppleAnisetteBaseUrl { get; set; }
+
+    public string AppleAnisetteHeadersPath { get; set; }
+
+    public string AppleGrandSlamBaseUrl { get; set; }
+
+    public string AppleDeveloperBaseUrl { get; set; }
+
+    public int AppleHttpTimeoutSeconds { get; set; }
+
+    public bool TelegramAlertsEnabled { get; set; }
+
+    public string? TelegramBotToken { get; set; }
+
+    public string? TelegramChatId { get; set; }
+}
 
 public sealed record SchedulerScanResult(
     int ScannedApps,

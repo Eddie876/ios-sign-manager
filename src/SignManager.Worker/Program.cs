@@ -1,3 +1,5 @@
+using SignManager.Apple.Anisette;
+using SignManager.Apple.Auth;
 using SignManager.Apple.Developer;
 using SignManager.Core.Policies;
 using SignManager.Core.Services;
@@ -22,6 +24,76 @@ builder.Logging.AddJsonConsole(options =>
 });
 
 builder.Services.Configure<SchedulerOptions>(builder.Configuration.GetSection("Scheduler"));
+builder.Services.PostConfigure<SchedulerOptions>(options =>
+{
+	var dataPath = Environment.GetEnvironmentVariable("SIGNMANAGER_DATA_PATH");
+	var signingStatePath = Environment.GetEnvironmentVariable("SIGNMANAGER_SIGNING_STATE_PATH");
+
+	var anisetteBaseUrl = Environment.GetEnvironmentVariable("SIGNMANAGER_ANISETTE_BASE_URL");
+	var grandSlamBaseUrl = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_GRANDSLAM_BASE_URL");
+	var developerBaseUrl = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVELOPER_BASE_URL");
+	var masterKeyPath = Environment.GetEnvironmentVariable("SIGNMANAGER_MASTER_KEY_PATH");
+
+	var deviceUdid = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVICE_UDID");
+	var deviceName = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVICE_NAME");
+	var teamId = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_TEAM_ID");
+	var privateKeyPassword = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_PRIVATE_KEY_PASSWORD");
+
+	if (!string.IsNullOrWhiteSpace(dataPath))
+	{
+		var normalized = dataPath.TrimEnd('/', '\\');
+		options.AppConfigPath = $"{normalized}/config/apps.json";
+		options.AppStatePath = $"{normalized}/state/state.json";
+		options.WorkspaceRoot = $"{normalized}/jobs";
+	}
+
+	if (!string.IsNullOrWhiteSpace(signingStatePath))
+	{
+		var normalized = signingStatePath.TrimEnd('/', '\\');
+		options.SigningStateRoot = normalized;
+		options.AppleSessionSecretsPath = $"{normalized}/secrets.enc";
+	}
+
+	if (!string.IsNullOrWhiteSpace(anisetteBaseUrl))
+	{
+		options.AppleAnisetteBaseUrl = anisetteBaseUrl;
+	}
+
+	if (!string.IsNullOrWhiteSpace(grandSlamBaseUrl))
+	{
+		options.AppleGrandSlamBaseUrl = grandSlamBaseUrl;
+	}
+
+	if (!string.IsNullOrWhiteSpace(developerBaseUrl))
+	{
+		options.AppleDeveloperBaseUrl = developerBaseUrl;
+	}
+
+	if (!string.IsNullOrWhiteSpace(masterKeyPath))
+	{
+		options.AppleSessionMasterKeyPath = masterKeyPath;
+	}
+
+	if (!string.IsNullOrWhiteSpace(deviceUdid))
+	{
+		options.AppleDeviceUdid = deviceUdid;
+	}
+
+	if (!string.IsNullOrWhiteSpace(deviceName))
+	{
+		options.AppleDeviceName = deviceName;
+	}
+
+	if (!string.IsNullOrWhiteSpace(teamId))
+	{
+		options.AppleTeamId = teamId;
+	}
+
+	if (!string.IsNullOrWhiteSpace(privateKeyPassword))
+	{
+		options.ApplePrivateKeyPassword = privateKeyPassword;
+	}
+});
 
 builder.Services.AddSingleton<AppConfigStore>();
 builder.Services.AddSingleton<AppStateStore>();
@@ -38,10 +110,65 @@ builder.Services.AddSingleton<SignedIpaValidator>();
 builder.Services.AddSingleton<ZsignSigningService>();
 builder.Services.AddSingleton<IpaPreflightService>();
 builder.Services.AddSingleton<SourceIpaManager>();
+builder.Services.AddSingleton<ICsrGenerator, CsrGenerator>();
+builder.Services.AddSingleton<ProvisioningProfileParser>();
+builder.Services.AddSingleton<AppleProvisioningService>(serviceProvider =>
+{
+	var options = serviceProvider.GetRequiredService<IOptions<SchedulerOptions>>().Value;
+	return new AppleProvisioningService(
+		serviceProvider.GetRequiredService<IAppleDeveloperClient>(),
+		serviceProvider.GetRequiredService<ICsrGenerator>(),
+		serviceProvider.GetRequiredService<ProvisioningProfileParser>(),
+		new ProfileFreshnessPolicy(options.ProfileMinimumFreshHours));
+});
+
+builder.Services.AddSingleton<IAppleSessionStore>(serviceProvider =>
+{
+	var options = serviceProvider.GetRequiredService<IOptions<SchedulerOptions>>().Value;
+	return new EncryptedAppleSessionStore(options.AppleSessionSecretsPath, options.AppleSessionMasterKeyPath);
+});
+
+builder.Services.AddSingleton<IAnisetteProvider>(serviceProvider =>
+{
+	var options = serviceProvider.GetRequiredService<IOptions<SchedulerOptions>>().Value;
+	var client = new HttpClient
+	{
+		BaseAddress = new Uri(options.AppleAnisetteBaseUrl),
+		Timeout = TimeSpan.FromSeconds(Math.Max(5, options.AppleHttpTimeoutSeconds)),
+	};
+
+	return new HttpAnisetteProvider(client, options.AppleAnisetteHeadersPath);
+});
+
+builder.Services.AddSingleton<IAppleGrandSlamClient>(serviceProvider =>
+{
+	var options = serviceProvider.GetRequiredService<IOptions<SchedulerOptions>>().Value;
+	var client = new HttpClient
+	{
+		BaseAddress = new Uri(options.AppleGrandSlamBaseUrl),
+		Timeout = TimeSpan.FromSeconds(Math.Max(5, options.AppleHttpTimeoutSeconds)),
+	};
+
+	return new GrandSlamHttpClient(client, serviceProvider.GetRequiredService<IAnisetteProvider>());
+});
+
+builder.Services.AddSingleton<IAppleDeveloperClient>(serviceProvider =>
+{
+	var options = serviceProvider.GetRequiredService<IOptions<SchedulerOptions>>().Value;
+	var client = new HttpClient
+	{
+		BaseAddress = new Uri(options.AppleDeveloperBaseUrl),
+		Timeout = TimeSpan.FromSeconds(Math.Max(5, options.AppleHttpTimeoutSeconds)),
+	};
+
+	return new HttpAppleDeveloperClient(client);
+});
+
+builder.Services.AddSingleton<AppleAuthenticationService>();
 
 builder.Services.AddSingleton<IGlobalSigningGate, GlobalSigningGate>();
 builder.Services.AddSingleton<ISigningArtifactSigner, ZsignArtifactSigner>();
-builder.Services.AddSingleton<IProvisioningMaterialProvider, UnavailableProvisioningMaterialProvider>();
+builder.Services.AddSingleton<IProvisioningMaterialProvider, AppleProvisioningMaterialProvider>();
 builder.Services.AddSingleton<IBuildPublisher, R2BuildPublisher>();
 builder.Services.AddSingleton<ISigningJobProcessor, SigningJobProcessor>();
 builder.Services.AddSingleton<ManualSignTriggerStore>();

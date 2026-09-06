@@ -61,6 +61,22 @@ Related environment variables:
 - `SIGNMANAGER_SIGNING_STATE_PATH`
 - `SIGNMANAGER_MASTER_KEY_PATH`
 
+## Worker provisioning configuration
+
+Set the following `Scheduler` values (via appsettings or mapped env strategy):
+
+- `AppleDeviceUdid`: target iPhone UDID
+- `AppleDeviceName`: display name used for ensure-device
+- `AppleTeamId`: optional fixed team id (when empty, first returned team is used)
+- `ApplePrivateKeyPassword`: password used for encrypted PKCS#8 key handling
+- `ProfileMinimumFreshHours`: profile freshness lower bound (default 144)
+- `AppleSessionSecretsPath`: encrypted Apple session token file
+- `AppleSessionMasterKeyPath`: session master key file path
+
+Current worker defaults are defined in:
+
+- `src/SignManager.Worker/appsettings.json`
+
 ## Backup and restore
 
 Local scripts:
