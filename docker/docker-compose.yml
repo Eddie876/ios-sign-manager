@@ -27,6 +27,27 @@ services:
     depends_on:
       - anisette
 
+  sign-manager-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: ["dotnet", "worker/SignManager.Worker.dll"]
+    volumes:
+      - signmanager-data:/data
+      - signmanager-signing-state:/signing-state
+    depends_on:
+      - anisette
+
   anisette:
     image: dadoum/anisette-v3-server:latest
     restart: unless-stopped
