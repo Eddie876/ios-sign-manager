@@ -25,7 +25,8 @@ Milestone progress snapshot:
 - Milestone 8 (scheduler): completed at fixture-test level
 - Milestone 9 (R2 publishing): completed at fixture-test level
 - Milestone 10 (web ui): completed at fixture-test level
-- Milestone 11+: not started
+- Milestone 11 (shortcut api): completed at fixture-test level
+- Milestone 12+: not started
 
 ## Solution layout
 

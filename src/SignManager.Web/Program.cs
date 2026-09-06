@@ -10,9 +10,11 @@ builder.Services.Configure<WebUiOptions>(builder.Configuration.GetSection("WebUi
 builder.Services.AddSingleton<AppConfigStore>();
 builder.Services.AddSingleton<AppStateStore>();
 builder.Services.AddSingleton<WebSettingsStore>();
+builder.Services.AddSingleton<ShortcutTokenStore>();
 builder.Services.AddSingleton<IpaPreflightService>();
 builder.Services.AddSingleton<SourceIpaManager>();
 builder.Services.AddSingleton<WebAppService>();
+builder.Services.AddSingleton<ShortcutApiService>();
 
 var app = builder.Build();
 
@@ -30,8 +32,57 @@ app.UseRouting();
 
 app.UseAuthorization();
 
+app.MapGet("/api/shortcut/refresh-plan", async (
+    HttpContext httpContext,
+    ShortcutApiService shortcutService,
+    CancellationToken cancellationToken) =>
+{
+    var token = ExtractBearerToken(httpContext.Request.Headers.Authorization);
+    if (!await shortcutService.ValidateTokenAsync(token, cancellationToken))
+    {
+        return Results.Unauthorized();
+    }
+
+    var response = await shortcutService.GetRefreshPlanAsync(DateTimeOffset.UtcNow, cancellationToken);
+    return Results.Ok(response);
+});
+
+app.MapPost("/api/shortcut/prompted", async (
+    HttpContext httpContext,
+    ShortcutPromptedRequest request,
+    ShortcutApiService shortcutService,
+    CancellationToken cancellationToken) =>
+{
+    var token = ExtractBearerToken(httpContext.Request.Headers.Authorization);
+    if (!await shortcutService.ValidateTokenAsync(token, cancellationToken))
+    {
+        return Results.Unauthorized();
+    }
+
+    var updated = await shortcutService.MarkPromptedAsync(
+        request.AppId,
+        request.BuildId,
+        DateTimeOffset.UtcNow,
+        cancellationToken);
+
+    return updated ? Results.Ok() : Results.BadRequest();
+});
+
 app.MapStaticAssets();
 app.MapRazorPages()
    .WithStaticAssets();
 
 app.Run();
+
+static string? ExtractBearerToken(string? authorization)
+{
+    if (string.IsNullOrWhiteSpace(authorization))
+    {
+        return null;
+    }
+
+    const string prefix = "Bearer ";
+    return authorization.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+        ? authorization[prefix.Length..].Trim()
+        : null;
+}
