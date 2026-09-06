@@ -152,6 +152,36 @@ public class SigningJobProcessorTests
     }
 
     [Fact]
+    public async Task RunAsync_ShouldNotMapAuthFromExceptionMessage_WhenErrorIsUntyped()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var sourcePath = Path.Combine(root, "sources", "app1", "source.ipa");
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            await File.WriteAllBytesAsync(sourcePath, [1, 2, 3, 4]);
+            var sourceSha256 = await ComputeSha256Async(sourcePath);
+
+            var request = CreateRequest(root, sourcePath, sourceSha256, DateTimeOffset.UtcNow);
+            var provider = new FakeProvisioningProvider(CreateProvisioningMaterial(root, request.NowUtc));
+            var signer = new FakeSigner((_, _) => throw new InvalidOperationException("auth token expired in signer"));
+            var publisher = new FakeBuildPublisher((_, _) => throw new InvalidOperationException("should not publish"));
+
+            var processor = CreateProcessor(provider, signer, publisher);
+            var result = await processor.RunAsync(request, CancellationToken.None);
+
+            Assert.Equal(SigningJobStatus.Failed, result.Job.Status);
+            Assert.Equal(StableErrorCodes.ZsignFailed, result.ErrorCode);
+            Assert.Equal(RuntimeStatus.Failed, result.RuntimeState.Status);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_ShouldMapPublishFailureToR2UploadFailed_AndRetry()
     {
         var root = CreateTempRoot();

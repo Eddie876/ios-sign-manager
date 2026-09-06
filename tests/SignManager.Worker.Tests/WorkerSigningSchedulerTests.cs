@@ -282,6 +282,35 @@ public class WorkerSigningSchedulerTests
         }
     }
 
+    [Fact]
+    public async Task RunScanOnce_ShouldTreatUntypedAuthMessageAsSignerFailureInFallback()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var paths = CreatePaths(root);
+            var now = new DateTimeOffset(2026, 9, 6, 10, 0, 0, TimeSpan.Zero);
+            await SaveSingleAppConfigAsync(paths.ConfigPath, now);
+
+            var processor = new FakeJobProcessor((_, _) =>
+                throw new InvalidOperationException("auth handshake timeout"));
+
+            var scheduler = CreateScheduler(processor);
+            await scheduler.RunScanOnceAsync(CreateOptions(paths), now, CancellationToken.None);
+
+            var state = await new AppStateStore().LoadAsync(paths.StatePath, CancellationToken.None);
+            Assert.NotNull(state);
+            Assert.Equal(RuntimeStatus.Failed, state!.Apps["app1"].Status);
+            Assert.Equal(StableErrorCodes.ZsignFailed, state.Apps["app1"].LastErrorCode);
+            Assert.NotNull(state.Apps["app1"].NextSignDueAt);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static WorkerSigningScheduler CreateScheduler(ISigningJobProcessor processor)
         => new(
             new AppConfigStore(),

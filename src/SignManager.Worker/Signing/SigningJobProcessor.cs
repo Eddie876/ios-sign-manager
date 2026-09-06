@@ -220,18 +220,8 @@ public sealed class SigningJobProcessor(
             IpaPreflightException preflight => preflight.ErrorCode,
             FileNotFoundException => StableErrorCodes.InvalidIpa,
             _ when stage == WorkflowStage.Publishing => StableErrorCodes.R2UploadFailed,
-            _ when IsSignedValidationFailure(ex) => StableErrorCodes.SignedIpaValidationFailed,
-            _ when IsAuthFailure(ex) => StableErrorCodes.AuthRequired,
             _ => StableErrorCodes.ZsignFailed,
         };
-
-    private static bool IsSignedValidationFailure(Exception ex)
-        => ex is InvalidOperationException invalidOperation
-            && invalidOperation.Message.Contains("validation failed", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsAuthFailure(Exception ex)
-        => ex is InvalidOperationException invalidOperation
-            && invalidOperation.Message.Contains("auth", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<string> ComputeSha256Async(string path, CancellationToken cancellationToken)
     {

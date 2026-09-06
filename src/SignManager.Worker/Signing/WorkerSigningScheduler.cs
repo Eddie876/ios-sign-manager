@@ -217,8 +217,6 @@ public sealed class WorkerSigningScheduler(
             SigningWorkflowException workflow => workflow.ErrorCode,
             IpaPreflightException preflight => preflight.ErrorCode,
             FileNotFoundException => StableErrorCodes.InvalidIpa,
-            InvalidOperationException invalidOperation when invalidOperation.Message.Contains("auth", StringComparison.OrdinalIgnoreCase)
-                => StableErrorCodes.AuthRequired,
             _ => StableErrorCodes.ZsignFailed,
         };
 
