@@ -25,6 +25,8 @@ public sealed class AppStateStore
         var document = await _store.ReadAsync(path, cancellationToken)
             ?? throw new InvalidOperationException("state.json is empty.");
 
+        ValidateDocument(document);
+
         var apps = document.Apps.ToDictionary(
             x => x.Key,
             x => new AppRuntimeState(
@@ -43,6 +45,7 @@ public sealed class AppStateStore
     public Task SaveAsync(string path, AppState state, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(state);
+        ValidateState(state);
 
         var apps = state.Apps.ToDictionary(
             x => x.Key,
@@ -81,6 +84,70 @@ public sealed class AppStateStore
         }
 
         return versionProperty.GetInt32();
+    }
+
+    private static void ValidateDocument(AppStateDocumentV1 document)
+    {
+        if (document.Version != CurrentVersion)
+        {
+            throw new UnsupportedSchemaVersionException("state.json", document.Version, CurrentVersion);
+        }
+
+        foreach (var app in document.Apps)
+        {
+            ValidateNonEmpty(app.Key, "state.json app key");
+            ValidateRuntimeState(
+                app.Key,
+                app.Value.LastSuccessfulSignAt,
+                app.Value.ProfileCreationDate,
+                app.Value.ProfileExpirationDate,
+                app.Value.LastErrorCode);
+        }
+    }
+
+    private static void ValidateState(AppState state)
+    {
+        foreach (var app in state.Apps)
+        {
+            ValidateNonEmpty(app.Key, "app state key");
+            ValidateRuntimeState(
+                app.Key,
+                app.Value.LastSuccessfulSignAt,
+                app.Value.ProfileCreationDate,
+                app.Value.ProfileExpirationDate,
+                app.Value.LastErrorCode);
+        }
+    }
+
+    private static void ValidateRuntimeState(
+        string appId,
+        DateTimeOffset? lastSuccessfulSignAt,
+        DateTimeOffset? profileCreationDate,
+        DateTimeOffset? profileExpirationDate,
+        string? lastErrorCode)
+    {
+        if (profileCreationDate is not null && profileExpirationDate is not null && profileExpirationDate < profileCreationDate)
+        {
+            throw new InvalidOperationException($"State for app '{appId}' has profileExpirationDate earlier than profileCreationDate.");
+        }
+
+        if (lastSuccessfulSignAt is not null && profileExpirationDate is not null && lastSuccessfulSignAt > profileExpirationDate)
+        {
+            throw new InvalidOperationException($"State for app '{appId}' has lastSuccessfulSignAt later than profileExpirationDate.");
+        }
+
+        if (lastErrorCode is not null && string.IsNullOrWhiteSpace(lastErrorCode))
+        {
+            throw new InvalidOperationException($"State for app '{appId}' has empty lastErrorCode.");
+        }
+    }
+
+    private static void ValidateNonEmpty(string value, string field)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException($"{field} is required.");
+        }
     }
 
     private sealed record AppStateDocumentV1(int Version, IReadOnlyDictionary<string, AppRuntimeStateDocumentV1> Apps);

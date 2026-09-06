@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using SignManager.Core.Models;
 
 namespace SignManager.Infrastructure.Persistence;
@@ -6,8 +7,7 @@ namespace SignManager.Infrastructure.Persistence;
 public sealed class AppConfigStore
 {
     public const int CurrentVersion = 1;
-
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+    private static readonly Regex SafeSlugPattern = new("^[a-z0-9-]+$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly JsonAtomicFileStore<AppConfigDocumentV1> _store = new();
 
@@ -27,6 +27,8 @@ public sealed class AppConfigStore
         var document = await _store.ReadAsync(path, cancellationToken)
             ?? throw new InvalidOperationException("apps.json is empty.");
 
+        ValidateDocument(document);
+
         return new AppConfig(
             document.Version,
             document.Apps.Select(MapToDomain).ToArray());
@@ -35,6 +37,7 @@ public sealed class AppConfigStore
     public Task SaveAsync(string path, AppConfig config, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(config);
+        ValidateConfig(config);
 
         var document = new AppConfigDocumentV1(
             Version: CurrentVersion,
@@ -76,6 +79,91 @@ public sealed class AppConfigStore
         }
 
         return versionProperty.GetInt32();
+    }
+
+    private static void ValidateDocument(AppConfigDocumentV1 document)
+    {
+        if (document.Version != CurrentVersion)
+        {
+            throw new UnsupportedSchemaVersionException("apps.json", document.Version, CurrentVersion);
+        }
+
+        ValidateApps(document.Apps);
+    }
+
+    private static void ValidateConfig(AppConfig config)
+    {
+        ValidateApps(config.Apps);
+    }
+
+    private static void ValidateApps(IReadOnlyList<ManagedAppConfigDocumentV1> apps)
+    {
+        var seenAppIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var app in apps)
+        {
+            ValidateNonEmpty(app.Id, "apps.json app.id");
+            ValidateNonEmpty(app.Name, $"apps.json app '{app.Id}' name");
+            ValidateNonEmpty(app.Source.Path, $"apps.json app '{app.Id}' source.path");
+            ValidateNonEmpty(app.Source.Sha256, $"apps.json app '{app.Id}' source.sha256");
+            ValidateNonEmpty(app.Identity.SourceBundleId, $"apps.json app '{app.Id}' identity.sourceBundleId");
+            ValidateNonEmpty(app.Identity.EffectiveBundleId, $"apps.json app '{app.Id}' identity.effectiveBundleId");
+            ValidateNonEmpty(app.Publish.Slug, $"apps.json app '{app.Id}' publish.slug");
+
+            if (!SafeSlugPattern.IsMatch(app.Publish.Slug))
+            {
+                throw new InvalidOperationException($"apps.json app '{app.Id}' publish.slug must match pattern [a-z0-9-]+.");
+            }
+
+            if (app.Schedule.IntervalHours <= 0)
+            {
+                throw new InvalidOperationException($"apps.json app '{app.Id}' schedule.intervalHours must be greater than 0.");
+            }
+
+            if (!seenAppIds.Add(app.Id))
+            {
+                throw new InvalidOperationException($"apps.json contains duplicate app id '{app.Id}'.");
+            }
+        }
+    }
+
+    private static void ValidateApps(IReadOnlyList<ManagedAppConfig> apps)
+    {
+        var seenAppIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var app in apps)
+        {
+            ValidateNonEmpty(app.Id, "app.id");
+            ValidateNonEmpty(app.Name, $"app '{app.Id}' name");
+            ValidateNonEmpty(app.Source.Path, $"app '{app.Id}' source.path");
+            ValidateNonEmpty(app.Source.Sha256, $"app '{app.Id}' source.sha256");
+            ValidateNonEmpty(app.Identity.SourceBundleId, $"app '{app.Id}' identity.sourceBundleId");
+            ValidateNonEmpty(app.Identity.EffectiveBundleId, $"app '{app.Id}' identity.effectiveBundleId");
+            ValidateNonEmpty(app.Publish.Slug, $"app '{app.Id}' publish.slug");
+
+            if (!SafeSlugPattern.IsMatch(app.Publish.Slug))
+            {
+                throw new InvalidOperationException($"app '{app.Id}' publish.slug must match pattern [a-z0-9-]+.");
+            }
+
+            if (app.Schedule.IntervalHours <= 0)
+            {
+                throw new InvalidOperationException($"app '{app.Id}' schedule.intervalHours must be greater than 0.");
+            }
+
+            if (!seenAppIds.Add(app.Id))
+            {
+                throw new InvalidOperationException($"Duplicate app id '{app.Id}'.");
+            }
+        }
+    }
+
+    private static void ValidateNonEmpty(string value, string field)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException($"{field} is required.");
+        }
     }
 
     private sealed record AppConfigDocumentV1(int Version, IReadOnlyList<ManagedAppConfigDocumentV1> Apps);

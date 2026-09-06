@@ -14,7 +14,20 @@ Scope covered in code and tests:
   - unsupported schema version rejection
   - atomic overwrite behavior
 
+Deploy-ready updates:
+
+- `AppConfigStore` now validates required fields before returning data to runtime:
+  - non-empty app id/name/source/bundle id/slug
+  - positive `schedule.intervalHours`
+  - duplicate app-id rejection
+  - publish slug pattern enforcement (`[a-z0-9-]+`)
+- `AppStateStore` now validates state timeline consistency:
+  - reject `profileExpirationDate < profileCreationDate`
+  - reject `lastSuccessfulSignAt > profileExpirationDate`
+- `JsonAtomicFileStore<T>` now forces file-system flush before atomic replace/move to reduce crash-window data loss.
+- Added milestone tests for malformed persistence inputs (duplicate app id and invalid profile date ordering).
+
 Status:
 
-- Milestone 5 is complete at fixture/integration-test level.
+- Milestone 5 is complete at deploy-ready persistence level.
 - Next milestones can depend on stable `apps.json` / `state.json` contracts.

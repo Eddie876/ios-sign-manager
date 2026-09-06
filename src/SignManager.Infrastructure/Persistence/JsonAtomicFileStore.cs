@@ -59,6 +59,7 @@ public sealed class JsonAtomicFileStore<T>
             {
                 await JsonSerializer.SerializeAsync(tempStream, value, SerializerOptions, cancellationToken);
                 await tempStream.FlushAsync(cancellationToken);
+                tempStream.Flush(flushToDisk: true);
             }
 
             if (File.Exists(path))
