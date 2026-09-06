@@ -4,7 +4,11 @@ namespace SignManager.Infrastructure.Operations;
 
 public sealed class DataBackupService
 {
-    public async Task BackupAsync(string dataRootPath, string outputZipPath, CancellationToken cancellationToken)
+    public async Task BackupAsync(
+        string dataRootPath,
+        string outputZipPath,
+        CancellationToken cancellationToken,
+        string? signingStateRootPath = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRootPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputZipPath);
@@ -22,6 +26,17 @@ public sealed class DataBackupService
             throw new InvalidOperationException("Backup output path cannot be inside data root.");
         }
 
+        string? signingStateFullPath = null;
+        if (!string.IsNullOrWhiteSpace(signingStateRootPath))
+        {
+            signingStateFullPath = Path.GetFullPath(signingStateRootPath);
+            if (Directory.Exists(signingStateFullPath)
+                && IsPathWithinRoot(outputZipFullPath, signingStateFullPath))
+            {
+                throw new InvalidOperationException("Backup output path cannot be inside signing-state root.");
+            }
+        }
+
         var outDir = Path.GetDirectoryName(outputZipFullPath);
         if (!string.IsNullOrWhiteSpace(outDir))
         {
@@ -34,20 +49,19 @@ public sealed class DataBackupService
         }
 
         using var zip = ZipFile.Open(outputZipFullPath, ZipArchiveMode.Create);
-        foreach (var file in Directory.GetFiles(dataRootFullPath, "*", SearchOption.AllDirectories))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
+        await AddDirectoryToArchiveAsync(zip, dataRootFullPath, prefix: null, cancellationToken);
 
-            var relative = Path.GetRelativePath(dataRootFullPath, file).Replace('\\', '/');
-            var entry = zip.CreateEntry(relative, CompressionLevel.Optimal);
-            await using var source = File.OpenRead(file);
-            await using var target = entry.Open();
-            await source.CopyToAsync(target, cancellationToken);
-            await target.FlushAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(signingStateFullPath) && Directory.Exists(signingStateFullPath))
+        {
+            await AddDirectoryToArchiveAsync(zip, signingStateFullPath, prefix: "signing-state", cancellationToken);
         }
     }
 
-    public async Task RestoreAsync(string backupZipPath, string dataRootPath, CancellationToken cancellationToken)
+    public async Task RestoreAsync(
+        string backupZipPath,
+        string dataRootPath,
+        CancellationToken cancellationToken,
+        string? signingStateRootPath = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(backupZipPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRootPath);
@@ -58,6 +72,13 @@ public sealed class DataBackupService
         if (!File.Exists(backupZipFullPath))
         {
             throw new FileNotFoundException("Backup archive not found.", backupZipFullPath);
+        }
+
+        string? signingStateFullPath = null;
+        if (!string.IsNullOrWhiteSpace(signingStateRootPath))
+        {
+            signingStateFullPath = Path.GetFullPath(signingStateRootPath);
+            Directory.CreateDirectory(signingStateFullPath);
         }
 
         Directory.CreateDirectory(dataRootFullPath);
@@ -72,9 +93,11 @@ public sealed class DataBackupService
                 continue;
             }
 
-            var outputPath = Path.GetFullPath(Path.Combine(dataRootFullPath, entry.FullName));
+            var normalizedEntry = entry.FullName.Replace('\\', '/');
+            var entryTarget = ResolveEntryTarget(normalizedEntry, dataRootFullPath, signingStateFullPath);
+            var outputPath = Path.GetFullPath(Path.Combine(entryTarget.RootPath, entryTarget.RelativePath));
 
-            if (!IsPathWithinRoot(outputPath, dataRootFullPath))
+            if (!IsPathWithinRoot(outputPath, entryTarget.RootPath))
             {
                 throw new InvalidOperationException($"Invalid entry path detected: {entry.FullName}");
             }
@@ -108,5 +131,43 @@ public sealed class DataBackupService
             || string.Equals(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                 root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                 StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task AddDirectoryToArchiveAsync(
+        ZipArchive zip,
+        string rootPath,
+        string? prefix,
+        CancellationToken cancellationToken)
+    {
+        foreach (var file in Directory.GetFiles(rootPath, "*", SearchOption.AllDirectories))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var relative = Path.GetRelativePath(rootPath, file).Replace('\\', '/');
+            var entryPath = string.IsNullOrWhiteSpace(prefix)
+                ? relative
+                : $"{prefix}/{relative}";
+
+            var entry = zip.CreateEntry(entryPath, CompressionLevel.Optimal);
+            await using var source = File.OpenRead(file);
+            await using var target = entry.Open();
+            await source.CopyToAsync(target, cancellationToken);
+            await target.FlushAsync(cancellationToken);
+        }
+    }
+
+    private static (string RootPath, string RelativePath) ResolveEntryTarget(
+        string normalizedEntry,
+        string dataRootFullPath,
+        string? signingStateFullPath)
+    {
+        const string SigningStatePrefix = "signing-state/";
+        if (!string.IsNullOrWhiteSpace(signingStateFullPath)
+            && normalizedEntry.StartsWith(SigningStatePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return (signingStateFullPath, normalizedEntry[SigningStatePrefix.Length..]);
+        }
+
+        return (dataRootFullPath, normalizedEntry);
     }
 }

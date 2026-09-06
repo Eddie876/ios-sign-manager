@@ -18,14 +18,19 @@ public class Milestone12OperationsTests
             await File.WriteAllTextAsync(Path.Combine(dataRoot, "config", "apps.json"), "{\"version\":1}");
             await File.WriteAllTextAsync(Path.Combine(dataRoot, "state", "state.json"), "{\"version\":1}");
 
+            var signingStateRoot = Path.Combine(root, "signing-state");
+            Directory.CreateDirectory(signingStateRoot);
+            await File.WriteAllTextAsync(Path.Combine(signingStateRoot, "secrets.enc"), "encrypted");
+
             var backupPath = Path.Combine(root, "backups", "backup.zip");
             var restoreRoot = Path.Combine(root, "restore");
+            var restoreSigningStateRoot = Path.Combine(root, "restore-signing-state");
 
             var service = new DataBackupService();
-            await service.BackupAsync(dataRoot, backupPath, CancellationToken.None);
+            await service.BackupAsync(dataRoot, backupPath, CancellationToken.None, signingStateRoot);
             Assert.True(File.Exists(backupPath));
 
-            await service.RestoreAsync(backupPath, restoreRoot, CancellationToken.None);
+            await service.RestoreAsync(backupPath, restoreRoot, CancellationToken.None, restoreSigningStateRoot);
 
             Assert.Equal(
                 await File.ReadAllTextAsync(Path.Combine(dataRoot, "config", "apps.json")),
@@ -33,6 +38,9 @@ public class Milestone12OperationsTests
             Assert.Equal(
                 await File.ReadAllTextAsync(Path.Combine(dataRoot, "state", "state.json")),
                 await File.ReadAllTextAsync(Path.Combine(restoreRoot, "state", "state.json")));
+            Assert.Equal(
+                await File.ReadAllTextAsync(Path.Combine(signingStateRoot, "secrets.enc")),
+                await File.ReadAllTextAsync(Path.Combine(restoreSigningStateRoot, "secrets.enc")));
         }
         finally
         {
