@@ -14,4 +14,4 @@ public sealed record WebUiOptions(
     double UploadMaxCompressionRatio = 200,
     int ShortcutPromptCooldownHours = 12,
     int ShortcutPromptOpportunityHours = 72,
-    string ShortcutBootstrapToken = "dev-shortcut-token");
+    string ShortcutBootstrapToken = "");

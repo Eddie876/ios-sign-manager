@@ -34,6 +34,24 @@ public class Milestone11ShortcutApiTests
     }
 
     [Fact]
+    public async Task ValidateToken_ShouldRejectBootstrap_WhenBootstrapTokenIsNotConfigured()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var webOptions = CreateOptions(root) with { ShortcutBootstrapToken = string.Empty };
+            var service = CreateService(webOptions);
+
+            Assert.False(await service.ValidateTokenAsync("dev-shortcut-token", CancellationToken.None));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
     public async Task RefreshPlan_ShouldReturnOneDueApp_UsingPriorityPolicy()
     {
         var root = CreateTempRoot();
@@ -92,6 +110,57 @@ public class Milestone11ShortcutApiTests
             Assert.True(afterCooldown.Due);
             Assert.NotNull(afterCooldown.App);
             Assert.Equal("qr", afterCooldown.App!.Id);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task RefreshPlan_ShouldNotReturnDue_WhenBeyondOpportunityWindow()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var webOptions = CreateOptions(root);
+            await SeedSingleOverdueAppAsync(webOptions, appId: "legacy", buildId: "build-old", overdueHours: 80);
+
+            var service = CreateService(webOptions);
+            var now = new DateTimeOffset(2026, 9, 6, 12, 0, 0, TimeSpan.Zero);
+
+            var response = await service.GetRefreshPlanAsync(now, CancellationToken.None);
+
+            Assert.False(response.Due);
+            Assert.Null(response.App);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task RefreshPlan_ShouldThrow_WhenPublicBaseUrlIsNotHttps()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var webOptions = CreateOptions(root);
+
+            await SeedSingleDueAppAsync(webOptions, appId: "qr", buildId: "build-001");
+
+            await new WebSettingsStore().SaveAsync(
+                webOptions.SettingsPath,
+                new WebSettings("http://ios.example.com", "a***@icloud.com", "TEAM", "Valid", "Ready"),
+                CancellationToken.None);
+
+            var service = CreateService(webOptions);
+            var now = new DateTimeOffset(2026, 9, 6, 12, 0, 0, TimeSpan.Zero);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetRefreshPlanAsync(now, CancellationToken.None));
         }
         finally
         {
@@ -206,6 +275,48 @@ public class Milestone11ShortcutApiTests
                     ProfileCreationDate: now.AddDays(-1),
                     ProfileExpirationDate: now.AddDays(6),
                     LastPromptAt: null,
+                    LastErrorCode: null),
+            });
+
+        await new AppStateStore().SaveAsync(options.AppStatePath, state, CancellationToken.None);
+    }
+
+    private static async Task SeedSingleOverdueAppAsync(WebUiOptions options, string appId, string buildId, int overdueHours)
+    {
+        await new WebSettingsStore().SaveAsync(
+            options.SettingsPath,
+            new WebSettings("https://ios.example.com", "a***@icloud.com", "TEAM", "Valid", "Ready"),
+            CancellationToken.None);
+
+        var config = new AppConfig(
+            AppConfigStore.CurrentVersion,
+            [
+                new ManagedAppConfig(
+                    Id: appId,
+                    Name: "Legacy",
+                    Enabled: true,
+                    Source: new SourceArtifact($"data/sources/{appId}/source.ipa", "sha", DateTimeOffset.UtcNow),
+                    Identity: new BundleIdentity("com.vendor.legacy", "com.vendor.legacy"),
+                    Signing: new AppSigningConfig(true),
+                    Schedule: new AppScheduleConfig(true, 48),
+                    Publish: new AppPublishConfig(appId)),
+            ]);
+
+        await new AppConfigStore().SaveAsync(options.AppConfigPath, config, CancellationToken.None);
+
+        var now = new DateTimeOffset(2026, 9, 6, 12, 0, 0, TimeSpan.Zero);
+        var state = new AppState(
+            AppStateStore.CurrentVersion,
+            new Dictionary<string, AppRuntimeState>
+            {
+                [appId] = new(
+                    RuntimeStatus.Ready,
+                    LastSuccessfulSignAt: now.AddDays(-10),
+                    NextSignDueAt: now.AddHours(-overdueHours),
+                    LatestBuildId: buildId,
+                    ProfileCreationDate: now.AddDays(-11),
+                    ProfileExpirationDate: now.AddDays(1),
+                    LastPromptAt: now.AddHours(-24),
                     LastErrorCode: null),
             });
 

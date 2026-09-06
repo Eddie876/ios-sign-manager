@@ -89,6 +89,13 @@ Current worker defaults are defined in:
 
 - `src/SignManager.Worker/appsettings.json`
 
+## Shortcut API deployment guardrails
+
+- `WebUi.ShortcutBootstrapToken` default is empty and should remain empty in production unless intentionally used for bootstrap.
+- `/api/shortcut/refresh-plan` validates runtime public base URL semantics; invalid settings return HTTP 503 problem details.
+- Prompt opportunities are bounded by `WebUi.ShortcutPromptOpportunityHours`; overdue apps beyond the window are intentionally skipped.
+- `/api/shortcut/prompted` requires non-empty `appId` and `buildId` (400 for invalid payload, 404 when state does not match).
+
 ## R2 publish safety
 
 - Publish validates signed IPA metadata before upload:

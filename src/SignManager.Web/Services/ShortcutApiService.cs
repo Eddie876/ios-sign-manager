@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Options;
 using SignManager.Core.Models;
 using SignManager.Infrastructure.Ota;
@@ -19,7 +21,7 @@ public sealed class ShortcutApiService(
             return false;
         }
 
-        if (string.Equals(bearerToken, options.Value.ShortcutBootstrapToken, StringComparison.Ordinal))
+        if (IsBootstrapTokenMatch(options.Value.ShortcutBootstrapToken, bearerToken))
         {
             return true;
         }
@@ -60,7 +62,8 @@ public sealed class ShortcutApiService(
             return new ShortcutRefreshPlanResponse(false, null);
         }
 
-        var manifestUrl = $"{settings.PublicBaseUrl.TrimEnd('/')}/apps/{first.App.Publish.Slug}/latest/manifest.plist";
+        var normalizedPublicBaseUrl = ValidateAndNormalizePublicBaseUrl(settings.PublicBaseUrl);
+        var manifestUrl = $"{normalizedPublicBaseUrl}/apps/{first.App.Publish.Slug}/latest/manifest.plist";
         var installUrl = ItmsServicesUrlBuilder.BuildInstallUrl(manifestUrl);
 
         return new ShortcutRefreshPlanResponse(
@@ -106,8 +109,13 @@ public sealed class ShortcutApiService(
             return false;
         }
 
-        var isOpportunityDue = now >= state.NextSignDueAt.Value || now - state.NextSignDueAt.Value >= opportunity;
-        if (!isOpportunityDue)
+        var dueAt = state.NextSignDueAt.Value;
+        if (now < dueAt)
+        {
+            return false;
+        }
+
+        if (now - dueAt > opportunity)
         {
             return false;
         }
@@ -118,6 +126,35 @@ public sealed class ShortcutApiService(
         }
 
         return now - state.LastPromptAt.Value >= cooldown;
+    }
+
+    private static bool IsBootstrapTokenMatch(string? configuredBootstrapToken, string bearerToken)
+    {
+        if (string.IsNullOrWhiteSpace(configuredBootstrapToken))
+        {
+            return false;
+        }
+
+        var configuredBytes = Encoding.UTF8.GetBytes(configuredBootstrapToken);
+        var providedBytes = Encoding.UTF8.GetBytes(bearerToken);
+        return CryptographicOperations.FixedTimeEquals(configuredBytes, providedBytes);
+    }
+
+    private static string ValidateAndNormalizePublicBaseUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException("Public base URL is required.");
+        }
+
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(uri.Host))
+        {
+            throw new InvalidOperationException("Public base URL must be an absolute HTTPS URL.");
+        }
+
+        return uri.ToString().TrimEnd('/');
     }
 }
 

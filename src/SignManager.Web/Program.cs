@@ -53,13 +53,23 @@ app.MapGet("/api/shortcut/refresh-plan", async (
         return Results.Unauthorized();
     }
 
-    var response = await shortcutService.GetRefreshPlanAsync(DateTimeOffset.UtcNow, cancellationToken);
-    return Results.Ok(response);
+    try
+    {
+        var response = await shortcutService.GetRefreshPlanAsync(DateTimeOffset.UtcNow, cancellationToken);
+        return Results.Ok(response);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(
+            title: "Shortcut API configuration error",
+            detail: ex.Message,
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
 });
 
 app.MapPost("/api/shortcut/prompted", async (
     HttpContext httpContext,
-    ShortcutPromptedRequest request,
+    ShortcutPromptedRequest? request,
     ShortcutApiService shortcutService,
     CancellationToken cancellationToken) =>
 {
@@ -69,13 +79,30 @@ app.MapPost("/api/shortcut/prompted", async (
         return Results.Unauthorized();
     }
 
+    if (request is null)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["request"] = ["Request body is required."],
+        });
+    }
+
+    if (string.IsNullOrWhiteSpace(request.AppId) || string.IsNullOrWhiteSpace(request.BuildId))
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            [nameof(request.AppId)] = ["AppId is required."],
+            [nameof(request.BuildId)] = ["BuildId is required."],
+        });
+    }
+
     var updated = await shortcutService.MarkPromptedAsync(
         request.AppId,
         request.BuildId,
         DateTimeOffset.UtcNow,
         cancellationToken);
 
-    return updated ? Results.Ok() : Results.BadRequest();
+    return updated ? Results.Ok() : Results.NotFound();
 });
 
 app.MapStaticAssets();
