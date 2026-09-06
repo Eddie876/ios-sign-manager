@@ -105,7 +105,7 @@ public sealed class SchedulerOptions
         int ScanIntervalSeconds = 30,
         int MaxProcessOutputBytes = 256 * 1024,
         int ZsignTimeoutSeconds = 1200,
-        int CleanupMaxAgeHours = 72,
+        int CleanupMaxAgeHours = 24,
         string LocalBuildsRoot = "data/builds",
         int LocalBuildsKeepLatestPerApp = 3,
         int R2VersionedRetentionDays = 30,
