@@ -19,6 +19,20 @@ html {
 
 body {
   margin-bottom: 60px;
+  background-color: #f5f7fb;
+}
+
+main {
+  padding-top: 0.5rem;
+}
+
+.card {
+  border: 0;
+  box-shadow: 0 2px 16px rgba(15, 23, 42, 0.06);
+}
+
+code {
+  color: #0b5ed7;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {

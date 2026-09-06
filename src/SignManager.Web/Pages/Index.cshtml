@@ -1,10 +1,86 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="mb-4">
+    <h1 class="display-6">Signing Dashboard</h1>
+    <p class="text-muted mb-0">Apple session and app signing overview.</p>
+</section>
+
+<section class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-uppercase text-muted">Apple Session</h2>
+                <p class="fs-5 mb-0">@Model.Dashboard.AppleSessionStatus</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-uppercase text-muted">Apps</h2>
+                <p class="fs-5 mb-0">@Model.Dashboard.AppCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-uppercase text-muted">Ready / Failed</h2>
+                <p class="fs-5 mb-0">@Model.Dashboard.ReadyCount / @Model.Dashboard.FailedCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h6 text-uppercase text-muted">Auth Required</h2>
+                <p class="fs-5 mb-0">@Model.Dashboard.AuthRequiredCount</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="d-flex gap-2 mb-3">
+    <a class="btn btn-primary" asp-page="/Apps/Index">App List</a>
+    <a class="btn btn-outline-secondary" asp-page="/Apps/Add">Add App</a>
+    <a class="btn btn-outline-secondary" asp-page="/Builds/Index">Build History</a>
+    <a class="btn btn-outline-secondary" asp-page="/Settings/Index">Settings</a>
+</section>
+
+<section>
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Bundle ID</th>
+                    <th>Last Sign</th>
+                    <th>Profile Expires</th>
+                    <th>Next Sign</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var app in Model.Dashboard.Apps)
+            {
+                <tr>
+                    <td>@app.Name</td>
+                    <td><code>@app.EffectiveBundleId</code></td>
+                    <td>@(app.LastSignAt?.ToString("u") ?? "-")</td>
+                    <td>@(app.ProfileExpiresAt?.ToString("u") ?? "-")</td>
+                    <td>@(app.NextSignAt?.ToString("u") ?? "-")</td>
+                    <td>@app.Status</td>
+                    <td>
+                        <a class="btn btn-sm btn-success" href="@app.InstallUrl">Install</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>

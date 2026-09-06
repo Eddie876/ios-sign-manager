@@ -1,0 +1,68 @@
+@page
+@model SignManager.Web.Pages.Apps.AddModel
+@{
+    ViewData["Title"] = "Add App";
+}
+
+<h1 class="h3 mb-3">Add App</h1>
+
+<form method="post" enctype="multipart/form-data" class="row g-3 mb-4">
+    <div class="col-md-6">
+        <label class="form-label">Name</label>
+        <input asp-for="Input.Name" class="form-control" required />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Effective Bundle ID</label>
+        <input asp-for="Input.EffectiveBundleId" class="form-control" required />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Publish Slug (optional)</label>
+        <input asp-for="Input.PublishSlug" class="form-control" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Interval Hours</label>
+        <input asp-for="Input.IntervalHours" class="form-control" type="number" min="1" />
+    </div>
+    <div class="col-md-4 form-check ms-2">
+        <input asp-for="Input.RemoveExtensions" class="form-check-input" />
+        <label asp-for="Input.RemoveExtensions" class="form-check-label">Remove Extensions</label>
+    </div>
+    <div class="col-md-4 form-check ms-2">
+        <input asp-for="Input.AutoSign" class="form-check-input" />
+        <label asp-for="Input.AutoSign" class="form-check-label">Auto Sign</label>
+    </div>
+    <div class="col-12">
+        <label class="form-label">Source IPA</label>
+        <input asp-for="Input.IpaFile" type="file" class="form-control" accept=".ipa" required />
+        <span asp-validation-for="Input.IpaFile" class="text-danger"></span>
+    </div>
+    <div class="col-12 d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Add App</button>
+        <a class="btn btn-outline-secondary" asp-page="/Apps/Index">Back to App List</a>
+    </div>
+</form>
+
+@if (Model.Result is not null)
+{
+    <section class="card">
+        <div class="card-body">
+            <h2 class="h5">Added: @Model.Result.Name (@Model.Result.AppId)</h2>
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Version</dt>
+                <dd class="col-sm-9">@Model.Result.Version</dd>
+                <dt class="col-sm-3">Source Bundle ID</dt>
+                <dd class="col-sm-9"><code>@Model.Result.SourceBundleId</code></dd>
+                <dt class="col-sm-3">Effective Bundle ID</dt>
+                <dd class="col-sm-9"><code>@Model.Result.EffectiveBundleId</code></dd>
+                <dt class="col-sm-3">Extensions</dt>
+                <dd class="col-sm-9">@(Model.Result.Extensions.Count == 0 ? "-" : string.Join(", ", Model.Result.Extensions))</dd>
+                <dt class="col-sm-3">Estimated App IDs Used</dt>
+                <dd class="col-sm-9">@Model.Result.EstimatedAppIdsUsed</dd>
+                <dt class="col-sm-3">Unsupported Entitlements</dt>
+                <dd class="col-sm-9">@(Model.Result.UnsupportedEntitlements.Count == 0 ? "none" : string.Join(", ", Model.Result.UnsupportedEntitlements))</dd>
+                <dt class="col-sm-3">Warnings</dt>
+                <dd class="col-sm-9">@(Model.Result.Warnings.Count == 0 ? "none" : string.Join(" | ", Model.Result.Warnings))</dd>
+            </dl>
+        </div>
+    </section>
+}

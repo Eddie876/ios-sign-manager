@@ -1,0 +1,35 @@
+@page
+@model SignManager.Web.Pages.Builds.IndexModel
+@{
+    ViewData["Title"] = "Build History";
+}
+
+<h1 class="h3 mb-3">Build History</h1>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>App</th>
+                <th>Latest Build ID</th>
+                <th>Last Successful Sign</th>
+                <th>Profile Expires</th>
+                <th>Status</th>
+                <th>Last Error</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model.History.Items)
+        {
+            <tr>
+                <td>@item.AppName <div><small class="text-muted">@item.AppId</small></div></td>
+                <td>@(item.LatestBuildId ?? "-")</td>
+                <td>@(item.LastSuccessfulSignAt?.ToString("u") ?? "-")</td>
+                <td>@(item.ProfileExpirationDate?.ToString("u") ?? "-")</td>
+                <td>@item.Status</td>
+                <td>@(item.LastErrorCode ?? "-")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

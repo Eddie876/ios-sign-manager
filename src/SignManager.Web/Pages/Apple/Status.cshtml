@@ -1,0 +1,27 @@
+@page
+@model SignManager.Web.Pages.Apple.StatusModel
+@{
+    ViewData["Title"] = "Apple Account";
+}
+
+<h1 class="h3 mb-3">Apple Account Status</h1>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Apple ID</dt>
+            <dd class="col-sm-9">@(Model.Status.AppleIdMasked ?? "not configured")</dd>
+            <dt class="col-sm-3">Team</dt>
+            <dd class="col-sm-9">@(Model.Status.TeamId ?? "not configured")</dd>
+            <dt class="col-sm-3">Session</dt>
+            <dd class="col-sm-9">@Model.Status.SessionStatus</dd>
+            <dt class="col-sm-3">Certificate</dt>
+            <dd class="col-sm-9">@Model.Status.CertificateStatus</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="alert alert-info">
+    <div>When login is needed, run:</div>
+    <code>@Model.Status.LoginCommand</code>
+</div>

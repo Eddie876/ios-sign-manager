@@ -1,7 +1,18 @@
+using SignManager.Infrastructure.Persistence;
+using SignManager.Signing.Ipa;
+using SignManager.Web.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddRazorPages();
+builder.Services.Configure<WebUiOptions>(builder.Configuration.GetSection("WebUi"));
+
+builder.Services.AddSingleton<AppConfigStore>();
+builder.Services.AddSingleton<AppStateStore>();
+builder.Services.AddSingleton<WebSettingsStore>();
+builder.Services.AddSingleton<IpaPreflightService>();
+builder.Services.AddSingleton<SourceIpaManager>();
+builder.Services.AddSingleton<WebAppService>();
 
 var app = builder.Build();
 

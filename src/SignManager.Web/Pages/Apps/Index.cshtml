@@ -1,0 +1,56 @@
+@page
+@model SignManager.Web.Pages.Apps.IndexModel
+@{
+    ViewData["Title"] = "App List";
+}
+
+<h1 class="h3 mb-3">App List</h1>
+
+@if (!string.IsNullOrWhiteSpace(Model.Message))
+{
+    <div class="alert alert-success">@Model.Message</div>
+}
+
+<div class="d-flex gap-2 mb-3">
+    <a class="btn btn-primary" asp-page="/Apps/Add">Add App</a>
+    <a class="btn btn-outline-secondary" asp-page="/Index">Dashboard</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>App ID</th>
+                <th>Name</th>
+                <th>Effective Bundle ID</th>
+                <th>Source Bundle ID</th>
+                <th>Last Sign</th>
+                <th>Next Sign</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var app in Model.Apps)
+        {
+            <tr>
+                <td><code>@app.AppId</code></td>
+                <td>@app.Name</td>
+                <td><code>@app.EffectiveBundleId</code></td>
+                <td><code>@app.SourceBundleId</code></td>
+                <td>@(app.LastSignAt?.ToString("u") ?? "-")</td>
+                <td>@(app.NextSignAt?.ToString("u") ?? "-")</td>
+                <td>@app.Status</td>
+                <td class="d-flex gap-1">
+                    <a class="btn btn-sm btn-success" href="@app.InstallUrl">Install</a>
+                    <form method="post" asp-page-handler="SignNow" class="d-inline">
+                        <input type="hidden" name="appId" value="@app.AppId" />
+                        <button type="submit" class="btn btn-sm btn-primary">Sign Now</button>
+                    </form>
+                    <a class="btn btn-sm btn-outline-secondary" asp-page="/Apps/Replace" asp-route-appId="@app.AppId">Replace IPA</a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

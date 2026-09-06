@@ -1,0 +1,38 @@
+@page
+@model SignManager.Web.Pages.Settings.IndexModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<h1 class="h3 mb-3">Settings</h1>
+
+@if (!string.IsNullOrWhiteSpace(Model.Message))
+{
+    <div class="alert alert-success">@Model.Message</div>
+}
+
+<form method="post" class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label">Public Base URL</label>
+        <input asp-for="Input.PublicBaseUrl" class="form-control" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Apple ID (masked)</label>
+        <input asp-for="Input.AppleIdMasked" class="form-control" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Team ID</label>
+        <input asp-for="Input.TeamId" class="form-control" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Session Status</label>
+        <input asp-for="Input.SessionStatus" class="form-control" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Certificate Status</label>
+        <input asp-for="Input.CertificateStatus" class="form-control" />
+    </div>
+    <div class="col-12">
+        <button class="btn btn-primary" type="submit">Save Settings</button>
+    </div>
+</form>

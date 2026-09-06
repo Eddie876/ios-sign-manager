@@ -1,0 +1,46 @@
+@page "{appId}"
+@model SignManager.Web.Pages.Apps.ReplaceModel
+@{
+    ViewData["Title"] = "Replace IPA";
+}
+
+@if (Model.App is null)
+{
+    <h1 class="h4">App not found.</h1>
+    <a class="btn btn-outline-secondary" asp-page="/Apps/Index">Back</a>
+}
+else
+{
+    <h1 class="h3 mb-3">Replace IPA - @Model.App.Name</h1>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div><strong>App ID:</strong> <code>@Model.App.AppId</code></div>
+            <div><strong>Source Bundle ID:</strong> <code>@Model.App.SourceBundleId</code></div>
+            <div><strong>Effective Bundle ID:</strong> <code>@Model.App.EffectiveBundleId</code></div>
+            <div><strong>Current Source SHA256:</strong> <code>@Model.App.SourceSha256</code></div>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="mb-3">
+        <input type="hidden" asp-for="AppId" />
+        <div class="mb-3">
+            <label class="form-label">New Source IPA</label>
+            <input asp-for="IpaFile" type="file" class="form-control" accept=".ipa" required />
+            <span asp-validation-for="IpaFile" class="text-danger"></span>
+        </div>
+        <button class="btn btn-primary" type="submit">Replace IPA</button>
+        <a class="btn btn-outline-secondary" asp-page="/Apps/Index">Back</a>
+    </form>
+
+    @if (Model.Result is not null)
+    {
+        <div class="alert alert-success">
+            <div><strong>Updated App:</strong> @Model.Result.AppId</div>
+            <div><strong>Version:</strong> @Model.Result.Version</div>
+            <div><strong>New Source Bundle ID:</strong> <code>@Model.Result.NewSourceBundleId</code></div>
+            <div><strong>New SHA256:</strong> <code>@Model.Result.NewSha256</code></div>
+            <div><strong>Warnings:</strong> @(Model.Result.Warnings.Count == 0 ? "none" : string.Join(" | ", Model.Result.Warnings))</div>
+        </div>
+    }
+}
