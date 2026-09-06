@@ -34,6 +34,7 @@ builder.Services.PostConfigure<SchedulerOptions>(options =>
 	var developerBaseUrl = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVELOPER_BASE_URL");
 	var masterKeyPath = Environment.GetEnvironmentVariable("SIGNMANAGER_MASTER_KEY_PATH");
 	var zsignExecutablePath = Environment.GetEnvironmentVariable("SIGNMANAGER_ZSIGN_PATH");
+	var publicBaseUrl = Environment.GetEnvironmentVariable("SIGNMANAGER_PUBLIC_BASE_URL");
 
 	var deviceUdid = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVICE_UDID");
 	var deviceName = Environment.GetEnvironmentVariable("SIGNMANAGER_APPLE_DEVICE_NAME");
@@ -78,6 +79,11 @@ builder.Services.PostConfigure<SchedulerOptions>(options =>
 	if (!string.IsNullOrWhiteSpace(zsignExecutablePath))
 	{
 		options.ZsignExecutablePath = zsignExecutablePath;
+	}
+
+	if (!string.IsNullOrWhiteSpace(publicBaseUrl))
+	{
+		options.OtaPublicBaseUrl = publicBaseUrl;
 	}
 
 	if (!string.IsNullOrWhiteSpace(deviceUdid))

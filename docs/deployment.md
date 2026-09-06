@@ -79,6 +79,12 @@ Set the following `Scheduler` values (via appsettings or mapped env strategy):
 - For deterministic container execution, set `SIGNMANAGER_ZSIGN_PATH=/usr/local/bin/zsign`.
 - Startup checks in signing path now validate required source/profile/certificate/key files before invoking zsign.
 
+## OTA public URL configuration
+
+- Worker publish flow requires `Scheduler.OtaPublicBaseUrl` as absolute HTTPS URL.
+- Environment override: `SIGNMANAGER_PUBLIC_BASE_URL`.
+- Example: `https://ios.example.com`
+
 Current worker defaults are defined in:
 
 - `src/SignManager.Worker/appsettings.json`

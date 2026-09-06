@@ -120,6 +120,7 @@ public sealed class SchedulerOptions
         string AppleGrandSlamBaseUrl = "http://apple-gateway.local/",
         string AppleDeveloperBaseUrl = "http://apple-gateway.local/",
         int AppleHttpTimeoutSeconds = 30,
+        string OtaPublicBaseUrl = "https://ios.example.com",
         bool TelegramAlertsEnabled = false,
         string? TelegramBotToken = null,
         string? TelegramChatId = null)
@@ -146,6 +147,7 @@ public sealed class SchedulerOptions
         this.AppleGrandSlamBaseUrl = AppleGrandSlamBaseUrl;
         this.AppleDeveloperBaseUrl = AppleDeveloperBaseUrl;
         this.AppleHttpTimeoutSeconds = AppleHttpTimeoutSeconds;
+        this.OtaPublicBaseUrl = OtaPublicBaseUrl;
         this.TelegramAlertsEnabled = TelegramAlertsEnabled;
         this.TelegramBotToken = TelegramBotToken;
         this.TelegramChatId = TelegramChatId;
@@ -194,6 +196,8 @@ public sealed class SchedulerOptions
     public string AppleDeveloperBaseUrl { get; set; }
 
     public int AppleHttpTimeoutSeconds { get; set; }
+
+    public string OtaPublicBaseUrl { get; set; }
 
     public bool TelegramAlertsEnabled { get; set; }
 
