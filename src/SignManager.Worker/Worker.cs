@@ -74,14 +74,7 @@ public sealed class Worker(
                 logger.LogError(ex, "Scheduler scan failed.");
 
                 await notifier.NotifyAsync(
-                    new ExceptionAlert(
-                        Title: "Scheduler scan failed",
-                        ErrorCode: "TELEGRAM_FAILED",
-                        Message: ex.Message,
-                        Metadata: new Dictionary<string, string>
-                        {
-                            ["exception"] = ex.GetType().Name,
-                        }),
+                    OperationalAlertFactory.CreateSchedulerScanFailureAlert(ex),
                     stoppingToken);
             }
 
