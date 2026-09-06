@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
 using SignManager.Core.Models;
 using SignManager.Infrastructure.Ota;
 using SignManager.Infrastructure.R2;
@@ -16,7 +17,9 @@ public class R2BuildPublisherTests
         try
         {
             var signedIpaPath = Path.Combine(root, "signed.ipa");
-            await File.WriteAllBytesAsync(signedIpaPath, [1, 2, 3, 4]);
+            var signedIpa = new byte[] { 1, 2, 3, 4 };
+            await File.WriteAllBytesAsync(signedIpaPath, signedIpa);
+            var sha256 = Convert.ToHexString(SHA256.HashData(signedIpa)).ToLowerInvariant();
 
             var options = new SchedulerOptions(OtaPublicBaseUrl: "https://cdn.example.com");
             var publisher = new R2BuildPublisher(
@@ -24,7 +27,7 @@ public class R2BuildPublisherTests
                 new R2ObjectKeyPlanner(),
                 Options.Create(options));
 
-            var result = await publisher.PublishAsync(CreateRequest(signedIpaPath), CancellationToken.None);
+            var result = await publisher.PublishAsync(CreateRequest(signedIpaPath, sha256, signedIpa.LongLength), CancellationToken.None);
 
             Assert.StartsWith("https://cdn.example.com/apps/", result.LatestManifestUrl, StringComparison.Ordinal);
             Assert.Contains("itms-services://", result.InstallUrl, StringComparison.Ordinal);
@@ -44,7 +47,9 @@ public class R2BuildPublisherTests
         try
         {
             var signedIpaPath = Path.Combine(root, "signed.ipa");
-            await File.WriteAllBytesAsync(signedIpaPath, [1, 2, 3, 4]);
+            var signedIpa = new byte[] { 1, 2, 3, 4 };
+            await File.WriteAllBytesAsync(signedIpaPath, signedIpa);
+            var sha256 = Convert.ToHexString(SHA256.HashData(signedIpa)).ToLowerInvariant();
 
             var options = new SchedulerOptions(OtaPublicBaseUrl: "http://cdn.example.com");
             var publisher = new R2BuildPublisher(
@@ -53,7 +58,7 @@ public class R2BuildPublisherTests
                 Options.Create(options));
 
             var ex = await Assert.ThrowsAsync<SigningWorkflowException>(() =>
-                publisher.PublishAsync(CreateRequest(signedIpaPath), CancellationToken.None));
+                publisher.PublishAsync(CreateRequest(signedIpaPath, sha256, signedIpa.LongLength), CancellationToken.None));
 
             Assert.Equal("R2_UPLOAD_FAILED", ex.ErrorCode);
             Assert.Contains("HTTPS", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -64,7 +69,7 @@ public class R2BuildPublisherTests
         }
     }
 
-    private static BuildPublishRequest CreateRequest(string signedIpaPath)
+    private static BuildPublishRequest CreateRequest(string signedIpaPath, string sha256, long sizeBytes)
     {
         var now = new DateTimeOffset(2026, 9, 6, 0, 0, 0, TimeSpan.Zero);
         var job = new SigningJob("job-1", "app1", "sha", SigningJobType.Auto, now, SigningJobStatus.Ready, 1);
@@ -80,8 +85,8 @@ public class R2BuildPublisherTests
         var build = new BuildInfo(
             BuildId: "build-1",
             AppId: "app1",
-            Sha256: "cafebabe",
-            SizeBytes: 4,
+            Sha256: sha256,
+            SizeBytes: sizeBytes,
             CreatedAt: now,
             Provisioning: new ProvisioningInfo(
                 Uuid: "profile-uuid",

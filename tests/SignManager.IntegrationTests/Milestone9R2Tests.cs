@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
 using SignManager.Core.Constants;
 using SignManager.Infrastructure.Ota;
 using SignManager.Infrastructure.R2;
@@ -16,7 +17,9 @@ public class Milestone9R2Tests
         try
         {
             var ipaPath = Path.Combine(root, "signed.ipa");
-            await File.WriteAllBytesAsync(ipaPath, [1, 2, 3, 4]);
+            var ipaBytes = new byte[] { 1, 2, 3, 4 };
+            await File.WriteAllBytesAsync(ipaPath, ipaBytes);
+            var sha256 = Convert.ToHexString(SHA256.HashData(ipaBytes)).ToLowerInvariant();
 
             var store = new InMemoryR2ObjectStore();
             var publisher = new R2ReleasePublisher(store, new R2ObjectKeyPlanner(), new OtaManifestGenerator());
@@ -29,7 +32,7 @@ public class Milestone9R2Tests
                 BundleIdentifier: "com.vendor.qr",
                 BundleVersion: "1.2.3",
                 Title: "QR Scanner",
-                Sha256: "cafebabe",
+                Sha256: sha256,
                 SizeBytes: 4,
                 CreatedAt: new DateTimeOffset(2026, 9, 6, 0, 0, 0, TimeSpan.Zero),
                 PublicBaseUrl: "https://cdn.example.com");
@@ -70,7 +73,9 @@ public class Milestone9R2Tests
         try
         {
             var ipaPath = Path.Combine(root, "signed.ipa");
-            await File.WriteAllBytesAsync(ipaPath, [1, 2, 3, 4]);
+            var ipaBytes = new byte[] { 1, 2, 3, 4 };
+            await File.WriteAllBytesAsync(ipaPath, ipaBytes);
+            var sha256 = Convert.ToHexString(SHA256.HashData(ipaBytes)).ToLowerInvariant();
 
             var failingStore = new FailingObjectStore("latest/manifest.plist");
             var publisher = new R2ReleasePublisher(failingStore, new R2ObjectKeyPlanner(), new OtaManifestGenerator());
@@ -83,7 +88,7 @@ public class Milestone9R2Tests
                 BundleIdentifier: "com.vendor.qr",
                 BundleVersion: "1.2.4",
                 Title: "QR Scanner",
-                Sha256: "deadbeef",
+                Sha256: sha256,
                 SizeBytes: 4,
                 CreatedAt: new DateTimeOffset(2026, 9, 6, 1, 0, 0, TimeSpan.Zero),
                 PublicBaseUrl: "https://cdn.example.com");
@@ -92,6 +97,46 @@ public class Milestone9R2Tests
 
             Assert.Equal(StableErrorCodes.R2UploadFailed, ex.ErrorCode);
             Assert.Empty(failingStore.Keys);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task PublishAsync_ShouldNotUploadLatestPointers_WhenVersionedVerificationFails()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var ipaPath = Path.Combine(root, "signed.ipa");
+            var ipaBytes = new byte[] { 1, 2, 3, 4 };
+            await File.WriteAllBytesAsync(ipaPath, ipaBytes);
+            var sha256 = Convert.ToHexString(SHA256.HashData(ipaBytes)).ToLowerInvariant();
+
+            var store = new VerifyFailingObjectStore("build.json");
+            var publisher = new R2ReleasePublisher(store, new R2ObjectKeyPlanner(), new OtaManifestGenerator());
+
+            var request = new R2PublishRequest(
+                RandomNamespace: "abcdefabcdefabcdefabcdefabcdefab",
+                AppId: "qr-scanner",
+                BuildId: "build-003",
+                SignedIpaPath: ipaPath,
+                BundleIdentifier: "com.vendor.qr",
+                BundleVersion: "1.2.5",
+                Title: "QR Scanner",
+                Sha256: sha256,
+                SizeBytes: 4,
+                CreatedAt: new DateTimeOffset(2026, 9, 6, 2, 0, 0, TimeSpan.Zero),
+                PublicBaseUrl: "https://cdn.example.com");
+
+            var ex = await Assert.ThrowsAsync<R2PublishException>(() => publisher.PublishAsync(request, CancellationToken.None));
+
+            Assert.Equal(StableErrorCodes.R2UploadFailed, ex.ErrorCode);
+            Assert.Empty(store.Keys);
+            Assert.DoesNotContain(store.AttemptedPutKeys, x => x.Contains("/latest/", StringComparison.Ordinal));
         }
         finally
         {
@@ -135,6 +180,41 @@ public class Milestone9R2Tests
         {
             _objects.Remove(key);
             return Task.CompletedTask;
+        }
+
+        public Task<bool> ObjectExistsAsync(string key, CancellationToken cancellationToken)
+            => Task.FromResult(_objects.ContainsKey(key));
+    }
+
+    private sealed class VerifyFailingObjectStore(string missingOnExistsSegment) : IR2ObjectStore
+    {
+        private readonly Dictionary<string, StoredR2Object> _objects = new(StringComparer.Ordinal);
+
+        public List<string> AttemptedPutKeys { get; } = [];
+
+        public IReadOnlyCollection<string> Keys => _objects.Keys;
+
+        public Task PutObjectAsync(R2PutObjectRequest request, CancellationToken cancellationToken)
+        {
+            AttemptedPutKeys.Add(request.Key);
+            _objects[request.Key] = new StoredR2Object(request.ContentType, request.Content);
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteObjectIfExistsAsync(string key, CancellationToken cancellationToken)
+        {
+            _objects.Remove(key);
+            return Task.CompletedTask;
+        }
+
+        public Task<bool> ObjectExistsAsync(string key, CancellationToken cancellationToken)
+        {
+            if (key.Contains(missingOnExistsSegment, StringComparison.Ordinal))
+            {
+                return Task.FromResult(false);
+            }
+
+            return Task.FromResult(_objects.ContainsKey(key));
         }
     }
 }

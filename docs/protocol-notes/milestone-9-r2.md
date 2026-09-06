@@ -26,7 +26,16 @@ Validation status:
   - partial failure rollback cleanup
 - Full solution tests are green.
 
+Deploy-ready updates:
+
+- `R2ReleasePublisher` now validates signed IPA metadata consistency before publish:
+  - `SizeBytes` must match on-disk file length
+  - `Sha256` must match on-disk file hash
+- Added explicit versioned-artifact verification gate (`ObjectExistsAsync`) before writing latest pointers.
+- If verification fails, publish aborts and rolls back uploaded versioned objects; latest pointers are never updated.
+- Integration tests now cover verification-gate failure path and latest-pointer safety.
+
 Status:
 
-- Milestone 9 is complete at fixture-test level.
+- Milestone 9 is complete at deploy-ready level.
 - Milestone 10 Web UI can now build on scheduler + signing + publish pipeline foundations.

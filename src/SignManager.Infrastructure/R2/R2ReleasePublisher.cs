@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
 using SignManager.Core.Constants;
 using SignManager.Infrastructure.Ota;
 
@@ -22,6 +23,9 @@ public sealed class R2ReleasePublisher(
         {
             throw new R2PublishException(StableErrorCodes.R2UploadFailed, "Signed IPA does not exist.");
         }
+
+        var ipaBytes = await File.ReadAllBytesAsync(request.SignedIpaPath, cancellationToken);
+        ValidateSignedIpaArtifact(request, ipaBytes);
 
         var plan = keyPlanner.BuildPlan(request.RandomNamespace, request.AppId, request.BuildId);
 
@@ -69,19 +73,26 @@ public sealed class R2ReleasePublisher(
 
         try
         {
-            await UploadIpaAsync(plan.VersionedIpaKey, request.SignedIpaPath, uploadedKeys, cancellationToken);
+            await UploadBytesAsync(plan.VersionedIpaKey, ipaBytes, IpaMime, uploadedKeys, cancellationToken);
             await UploadTextAsync(plan.VersionedManifestKey, manifestXml, ManifestMime, uploadedKeys, cancellationToken);
             await UploadBytesAsync(plan.VersionedBuildJsonKey, buildJsonBytes, JsonMime, uploadedKeys, cancellationToken);
+            await VerifyVersionedArtifactsAsync(plan, cancellationToken);
             await UploadTextAsync(plan.LatestManifestKey, manifestXml, ManifestMime, uploadedKeys, cancellationToken);
             await UploadBytesAsync(plan.LatestJsonKey, latestJsonBytes, JsonMime, uploadedKeys, cancellationToken);
         }
-        catch (R2PublishException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
         catch (Exception ex)
         {
             await CleanupPartialAsync(uploadedKeys, cancellationToken);
+
+            if (ex is R2PublishException publishException)
+            {
+                throw publishException;
+            }
+
             throw new R2PublishException(StableErrorCodes.R2UploadFailed, "Failed to publish build artifacts to R2.", ex);
         }
 
@@ -92,12 +103,6 @@ public sealed class R2ReleasePublisher(
             LatestManifestUrl: latestManifestUrl,
             LatestMetadataUrl: latestMetadataUrl,
             InstallUrl: installUrl);
-    }
-
-    private async Task UploadIpaAsync(string key, string ipaPath, List<string> uploadedKeys, CancellationToken cancellationToken)
-    {
-        var ipaBytes = await File.ReadAllBytesAsync(ipaPath, cancellationToken);
-        await UploadBytesAsync(key, ipaBytes, IpaMime, uploadedKeys, cancellationToken);
     }
 
     private async Task UploadTextAsync(string key, string content, string contentType, List<string> uploadedKeys, CancellationToken cancellationToken)
@@ -124,6 +129,38 @@ public sealed class R2ReleasePublisher(
             {
                 // Best-effort cleanup.
             }
+        }
+    }
+
+    private async Task VerifyVersionedArtifactsAsync(R2ObjectKeyPlan plan, CancellationToken cancellationToken)
+    {
+        var hasIpa = await objectStore.ObjectExistsAsync(plan.VersionedIpaKey, cancellationToken);
+        var hasManifest = await objectStore.ObjectExistsAsync(plan.VersionedManifestKey, cancellationToken);
+        var hasBuildJson = await objectStore.ObjectExistsAsync(plan.VersionedBuildJsonKey, cancellationToken);
+
+        if (!hasIpa || !hasManifest || !hasBuildJson)
+        {
+            throw new R2PublishException(StableErrorCodes.R2UploadFailed, "Versioned artifact verification failed before latest pointer update.");
+        }
+    }
+
+    private static void ValidateSignedIpaArtifact(R2PublishRequest request, byte[] ipaBytes)
+    {
+        if (request.SizeBytes <= 0)
+        {
+            throw new R2PublishException(StableErrorCodes.SignedIpaValidationFailed, "Signed IPA size metadata is invalid.");
+        }
+
+        if (ipaBytes.LongLength != request.SizeBytes)
+        {
+            throw new R2PublishException(StableErrorCodes.SignedIpaValidationFailed, "Signed IPA size does not match metadata.");
+        }
+
+        var hash = SHA256.HashData(ipaBytes);
+        var actualSha256 = Convert.ToHexString(hash).ToLowerInvariant();
+        if (!string.Equals(actualSha256, request.Sha256, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new R2PublishException(StableErrorCodes.SignedIpaValidationFailed, "Signed IPA hash does not match metadata.");
         }
     }
 

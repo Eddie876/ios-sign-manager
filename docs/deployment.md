@@ -89,6 +89,14 @@ Current worker defaults are defined in:
 
 - `src/SignManager.Worker/appsettings.json`
 
+## R2 publish safety
+
+- Publish validates signed IPA metadata before upload:
+	- on-disk IPA size must match `SizeBytes`
+	- on-disk IPA SHA-256 must match `Sha256`
+- Publisher verifies versioned artifacts exist before updating latest pointers.
+- If versioned verification or later upload fails, uploaded objects are rolled back and latest pointers are not updated.
+
 ## Web IPA management configuration
 
 - Source IPA root directory is configurable via `WebUi.SourceRootDirectory` (default `data/sources`).

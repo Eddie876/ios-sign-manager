@@ -5,6 +5,8 @@ public interface IR2ObjectStore
     Task PutObjectAsync(R2PutObjectRequest request, CancellationToken cancellationToken);
 
     Task DeleteObjectIfExistsAsync(string key, CancellationToken cancellationToken);
+
+    Task<bool> ObjectExistsAsync(string key, CancellationToken cancellationToken);
 }
 
 public sealed record R2PutObjectRequest(

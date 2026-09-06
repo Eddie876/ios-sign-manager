@@ -20,6 +20,9 @@ public sealed class InMemoryR2ObjectStore : IR2ObjectStore
         return Task.CompletedTask;
     }
 
+    public Task<bool> ObjectExistsAsync(string key, CancellationToken cancellationToken)
+        => Task.FromResult(_objects.ContainsKey(key));
+
     public bool TryGet(string key, out StoredR2Object value)
         => _objects.TryGetValue(key, out value!);
 }
