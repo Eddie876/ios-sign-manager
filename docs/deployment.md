@@ -136,10 +136,16 @@ Examples:
 ./scripts/restore.ps1 -BackupPath ./backups/sign-manager-backup.zip -RestoreRoot ./data-restore
 ```
 
+Operational safeguards:
+
+- Backup output archive path must be outside the data root (prevents self-inclusion/corruption).
+- Restore rejects archive entries that attempt path traversal outside the restore root.
+
 ## Workspace cleanup
 
 - Worker periodically cleans old job directories under `WorkspaceRoot`.
 - Controlled by `Scheduler.CleanupMaxAgeHours` (default 72h).
+- Cleanup now isolates per-directory delete failures; one locked/broken directory will not abort the entire cleanup pass.
 - Scheduler scan now isolates per-app execution failures; a single app fault will not abort processing for other apps in the same scan.
 - Unexpected per-app processor exceptions are converted to stable fallback error codes with retry/non-retry behavior persisted in `state.json`.
 

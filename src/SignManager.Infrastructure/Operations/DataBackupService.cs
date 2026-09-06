@@ -9,28 +9,36 @@ public sealed class DataBackupService
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRootPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputZipPath);
 
-        if (!Directory.Exists(dataRootPath))
+        var dataRootFullPath = Path.GetFullPath(dataRootPath);
+        var outputZipFullPath = Path.GetFullPath(outputZipPath);
+
+        if (!Directory.Exists(dataRootFullPath))
         {
-            throw new DirectoryNotFoundException($"Data root not found: {dataRootPath}");
+            throw new DirectoryNotFoundException($"Data root not found: {dataRootFullPath}");
         }
 
-        var outDir = Path.GetDirectoryName(outputZipPath);
+        if (IsPathWithinRoot(outputZipFullPath, dataRootFullPath))
+        {
+            throw new InvalidOperationException("Backup output path cannot be inside data root.");
+        }
+
+        var outDir = Path.GetDirectoryName(outputZipFullPath);
         if (!string.IsNullOrWhiteSpace(outDir))
         {
             Directory.CreateDirectory(outDir);
         }
 
-        if (File.Exists(outputZipPath))
+        if (File.Exists(outputZipFullPath))
         {
-            File.Delete(outputZipPath);
+            File.Delete(outputZipFullPath);
         }
 
-        using var zip = ZipFile.Open(outputZipPath, ZipArchiveMode.Create);
-        foreach (var file in Directory.GetFiles(dataRootPath, "*", SearchOption.AllDirectories))
+        using var zip = ZipFile.Open(outputZipFullPath, ZipArchiveMode.Create);
+        foreach (var file in Directory.GetFiles(dataRootFullPath, "*", SearchOption.AllDirectories))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var relative = Path.GetRelativePath(dataRootPath, file).Replace('\\', '/');
+            var relative = Path.GetRelativePath(dataRootFullPath, file).Replace('\\', '/');
             var entry = zip.CreateEntry(relative, CompressionLevel.Optimal);
             await using var source = File.OpenRead(file);
             await using var target = entry.Open();
@@ -44,24 +52,38 @@ public sealed class DataBackupService
         ArgumentException.ThrowIfNullOrWhiteSpace(backupZipPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRootPath);
 
-        if (!File.Exists(backupZipPath))
+        var backupZipFullPath = Path.GetFullPath(backupZipPath);
+        var dataRootFullPath = Path.GetFullPath(dataRootPath);
+
+        if (!File.Exists(backupZipFullPath))
         {
-            throw new FileNotFoundException("Backup archive not found.", backupZipPath);
+            throw new FileNotFoundException("Backup archive not found.", backupZipFullPath);
         }
 
-        Directory.CreateDirectory(dataRootPath);
+        Directory.CreateDirectory(dataRootFullPath);
 
-        using var zip = ZipFile.OpenRead(backupZipPath);
+        using var zip = ZipFile.OpenRead(backupZipFullPath);
         foreach (var entry in zip.Entries)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var outputPath = Path.GetFullPath(Path.Combine(dataRootPath, entry.FullName));
-            var root = Path.GetFullPath(dataRootPath);
+            if (string.IsNullOrWhiteSpace(entry.FullName))
+            {
+                continue;
+            }
 
-            if (!outputPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            var outputPath = Path.GetFullPath(Path.Combine(dataRootFullPath, entry.FullName));
+
+            if (!IsPathWithinRoot(outputPath, dataRootFullPath))
             {
                 throw new InvalidOperationException($"Invalid entry path detected: {entry.FullName}");
+            }
+
+            // Directory entries in ZIP archives are represented by trailing '/'.
+            if (entry.FullName.EndsWith("/", StringComparison.Ordinal))
+            {
+                Directory.CreateDirectory(outputPath);
+                continue;
             }
 
             var dir = Path.GetDirectoryName(outputPath);
@@ -75,5 +97,16 @@ public sealed class DataBackupService
             await source.CopyToAsync(target, cancellationToken);
             await target.FlushAsync(cancellationToken);
         }
+    }
+
+    private static bool IsPathWithinRoot(string path, string root)
+    {
+        var normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        return path.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -36,9 +36,10 @@ public sealed class Worker(
                     DateTimeOffset.UtcNow);
 
                 logger.LogInformation(
-                    "Workspace cleanup completed. scanned={ScannedDirectories}, deleted={DeletedDirectories}",
+                    "Workspace cleanup completed. scanned={ScannedDirectories}, deleted={DeletedDirectories}, failed={FailedDirectories}",
                     cleanup.ScannedDirectories,
-                    cleanup.DeletedDirectories);
+                    cleanup.DeletedDirectories,
+                    cleanup.FailedDirectories);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

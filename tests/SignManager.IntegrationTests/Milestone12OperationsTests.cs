@@ -1,4 +1,5 @@
 using SignManager.Infrastructure.Operations;
+using System.IO.Compression;
 
 namespace SignManager.IntegrationTests;
 
@@ -32,6 +33,62 @@ public class Milestone12OperationsTests
             Assert.Equal(
                 await File.ReadAllTextAsync(Path.Combine(dataRoot, "state", "state.json")),
                 await File.ReadAllTextAsync(Path.Combine(restoreRoot, "state", "state.json")));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task Backup_ShouldRejectOutputPathInsideDataRoot()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var dataRoot = Path.Combine(root, "data");
+            Directory.CreateDirectory(Path.Combine(dataRoot, "config"));
+            await File.WriteAllTextAsync(Path.Combine(dataRoot, "config", "apps.json"), "{}");
+
+            var service = new DataBackupService();
+            var outputPath = Path.Combine(dataRoot, "backups", "backup.zip");
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.BackupAsync(dataRoot, outputPath, CancellationToken.None));
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
+    [Fact]
+    public async Task Restore_ShouldRejectPathTraversalEntries()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var backupPath = Path.Combine(root, "backups", "unsafe.zip");
+            var backupDir = Path.GetDirectoryName(backupPath);
+            if (!string.IsNullOrWhiteSpace(backupDir))
+            {
+                Directory.CreateDirectory(backupDir);
+            }
+
+            using (var archive = ZipFile.Open(backupPath, ZipArchiveMode.Create))
+            {
+                var entry = archive.CreateEntry("../escape.txt");
+                await using var writer = new StreamWriter(entry.Open());
+                await writer.WriteAsync("unsafe");
+            }
+
+            var service = new DataBackupService();
+            var restoreRoot = Path.Combine(root, "restore");
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.RestoreAsync(backupPath, restoreRoot, CancellationToken.None));
         }
         finally
         {

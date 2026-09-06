@@ -12,6 +12,8 @@ Scope covered in code and tests:
 - Backup and restore operation support:
   - `DataBackupService` for archive backup and restore flows
   - integration test validates roundtrip restoration
+  - backup rejects output paths inside data root to avoid self-inclusion/corruption
+  - restore enforces robust root-bound path validation and rejects traversal entries
 - Docker hardening applied:
   - non-root runtime user
   - read-only root filesystem in compose
@@ -20,6 +22,7 @@ Scope covered in code and tests:
   - tmpfs mount for `/tmp`
 - Cleanup support added:
   - worker job-workspace cleanup service with max age policy
+  - cleanup isolates per-directory delete failures and continues processing
   - manual cleanup script for operations
   - worker test validates old-directory cleanup behavior
 - Deployment documentation expanded with runbook-level steps.
@@ -42,10 +45,11 @@ Implementation files:
 Validation status:
 
 - Integration tests include backup/restore roundtrip.
-- Worker tests include cleanup behavior and non-retryable failure alert emission.
+- Integration tests include backup output-location guard and restore traversal rejection.
+- Worker tests include cleanup behavior, per-directory delete-failure isolation, and non-retryable failure alert emission.
 - Full solution tests are green.
 
 Status:
 
-- Milestone 12 is complete at fixture-test level.
+- Milestone 12 is deploy-ready for operations path safety and cleanup fault isolation.
 - Current baseline now includes scheduler, signing, publish, web UI, shortcut API, and operations hardening foundations.
