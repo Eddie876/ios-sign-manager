@@ -29,8 +29,9 @@ public class SigningJobProcessorTests
                 File.WriteAllBytes(signRequest.OutputIpaPath, [9, 9, 9, 9]);
                 return Task.FromResult(new SignedBuildArtifact(signRequest.OutputIpaPath, 4, "cafebabe", TimeSpan.FromSeconds(1)));
             });
+            var publisher = new FakeBuildPublisher((_, _) => Task.FromResult(new BuildPublishResult("itms-services://ok", "https://example/latest/manifest.plist", "https://example/latest/latest.json")));
 
-            var processor = CreateProcessor(provider, signer);
+            var processor = CreateProcessor(provider, signer, publisher);
             var result = await processor.RunAsync(request, CancellationToken.None);
 
             Assert.Equal(SigningJobStatus.Ready, result.Job.Status);
@@ -43,6 +44,7 @@ public class SigningJobProcessorTests
             Assert.Contains(SigningJobStatus.Provisioning, result.Timeline);
             Assert.Contains(SigningJobStatus.Signing, result.Timeline);
             Assert.Contains(SigningJobStatus.Validation, result.Timeline);
+            Assert.Contains(SigningJobStatus.Publishing, result.Timeline);
             Assert.Contains(SigningJobStatus.Ready, result.Timeline);
             Assert.True(File.Exists(Path.Combine(root, "workspace", request.Job.JobId, "signed.ipa")));
         }
@@ -66,8 +68,9 @@ public class SigningJobProcessorTests
             var request = CreateRequest(root, sourcePath, "mismatch", DateTimeOffset.UtcNow);
             var provider = new FakeProvisioningProvider(CreateProvisioningMaterial(root, request.NowUtc));
             var signer = new FakeSigner((_, _) => throw new InvalidOperationException("should not sign"));
+            var publisher = new FakeBuildPublisher((_, _) => throw new InvalidOperationException("should not publish"));
 
-            var processor = CreateProcessor(provider, signer);
+            var processor = CreateProcessor(provider, signer, publisher);
             var result = await processor.RunAsync(request, CancellationToken.None);
 
             Assert.Equal(SigningJobStatus.Failed, result.Job.Status);
@@ -97,8 +100,9 @@ public class SigningJobProcessorTests
             var request = CreateRequest(root, sourcePath, sourceSha256, now);
             var provider = new FakeProvisioningProvider(CreateProvisioningMaterial(root, request.NowUtc));
             var signer = new FakeSigner((_, _) => throw new InvalidOperationException("zsign failed with exit code 1"));
+            var publisher = new FakeBuildPublisher((_, _) => throw new InvalidOperationException("should not publish"));
 
-            var processor = CreateProcessor(provider, signer);
+            var processor = CreateProcessor(provider, signer, publisher);
             var result = await processor.RunAsync(request, CancellationToken.None);
 
             Assert.Equal(SigningJobStatus.Failed, result.Job.Status);
@@ -128,8 +132,9 @@ public class SigningJobProcessorTests
             var request = CreateRequest(root, sourcePath, sourceSha256, DateTimeOffset.UtcNow);
             var provider = new FakeProvisioningProvider(new SigningWorkflowException(StableErrorCodes.AuthRequired, "session expired"));
             var signer = new FakeSigner((_, _) => throw new InvalidOperationException("should not sign"));
+            var publisher = new FakeBuildPublisher((_, _) => throw new InvalidOperationException("should not publish"));
 
-            var processor = CreateProcessor(provider, signer);
+            var processor = CreateProcessor(provider, signer, publisher);
             var result = await processor.RunAsync(request, CancellationToken.None);
 
             Assert.Equal(SigningJobStatus.Failed, result.Job.Status);
@@ -169,11 +174,13 @@ public class SigningJobProcessorTests
 
     private static SigningJobProcessor CreateProcessor(
         IProvisioningMaterialProvider provider,
-        ISigningArtifactSigner signer)
+        ISigningArtifactSigner signer,
+        IBuildPublisher buildPublisher)
         => new(
             new SourceIpaManager(new IpaPreflightService()),
             provider,
             signer,
+            buildPublisher,
             new GlobalSigningGate(),
             new RetryPolicy(),
             new RefreshPlanner());
@@ -286,6 +293,13 @@ public class SigningJobProcessorTests
         : ISigningArtifactSigner
     {
         public Task<SignedBuildArtifact> SignAsync(SignArtifactRequest request, CancellationToken cancellationToken)
+            => handler(request, cancellationToken);
+    }
+
+    private sealed class FakeBuildPublisher(Func<BuildPublishRequest, CancellationToken, Task<BuildPublishResult>> handler)
+        : IBuildPublisher
+    {
+        public Task<BuildPublishResult> PublishAsync(BuildPublishRequest request, CancellationToken cancellationToken)
             => handler(request, cancellationToken);
     }
 }

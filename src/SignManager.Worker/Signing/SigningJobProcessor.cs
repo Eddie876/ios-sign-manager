@@ -11,6 +11,7 @@ public sealed class SigningJobProcessor(
     SourceIpaManager sourceIpaManager,
     IProvisioningMaterialProvider provisioningProvider,
     ISigningArtifactSigner artifactSigner,
+    IBuildPublisher buildPublisher,
     IGlobalSigningGate signingGate,
     RetryPolicy retryPolicy,
     RefreshPlanner refreshPlanner) : ISigningJobProcessor
@@ -73,6 +74,16 @@ public sealed class SigningJobProcessor(
                 SizeBytes: artifact.SizeBytes,
                 CreatedAt: now,
                 Provisioning: provisioning.Provisioning);
+
+            timeline.Add(SigningJobStatus.Publishing);
+            await buildPublisher.PublishAsync(
+                new BuildPublishRequest(
+                    Job: completedJob,
+                    App: request.App,
+                    Build: build,
+                    SignedIpaPath: artifact.Path,
+                    NowUtc: now),
+                cancellationToken);
 
             var runtimeState = new AppRuntimeState(
                 Status: RuntimeStatus.Ready,

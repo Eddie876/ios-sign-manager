@@ -27,6 +27,11 @@ public interface ISigningJobProcessor
     Task<SigningJobRunResult> RunAsync(SigningJobRequest request, CancellationToken cancellationToken);
 }
 
+public interface IBuildPublisher
+{
+    Task<BuildPublishResult> PublishAsync(BuildPublishRequest request, CancellationToken cancellationToken);
+}
+
 public sealed record ProvisioningMaterial(
     string PrivateKeyPath,
     string CertificatePath,
@@ -49,6 +54,18 @@ public sealed record SignedBuildArtifact(
     long SizeBytes,
     string Sha256,
     TimeSpan SigningDuration);
+
+public sealed record BuildPublishRequest(
+    SigningJob Job,
+    ManagedAppConfig App,
+    BuildInfo Build,
+    string SignedIpaPath,
+    DateTimeOffset NowUtc);
+
+public sealed record BuildPublishResult(
+    string InstallUrl,
+    string LatestManifestUrl,
+    string LatestMetadataUrl);
 
 public sealed record SigningExecutionOptions(
     string WorkspaceRoot,

@@ -23,7 +23,8 @@ Milestone progress snapshot:
 - Milestone 6 (IPA management): completed at fixture-test level
 - Milestone 7 (signing worker): completed at fixture-test level
 - Milestone 8 (scheduler): completed at fixture-test level
-- Milestone 9+: not started
+- Milestone 9 (R2 publishing): completed at fixture-test level
+- Milestone 10+: not started
 
 ## Solution layout
 
