@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using SignManager.Apple.Anisette;
+using SignManager.Apple.Tests.Fixtures;
 
 namespace SignManager.Apple.Tests;
 
@@ -11,10 +12,7 @@ public class AnisetteHeaderTests
     {
         var handler = new StubMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = JsonContent.Create(new Dictionary<string, string>
-            {
-                ["X-Apple-I-MD"] = "a",
-            }),
+            Content = JsonContent.Create(AnisetteFixtures.MissingRequiredHeaders),
         });
 
         using var client = new HttpClient(handler)
@@ -31,14 +29,7 @@ public class AnisetteHeaderTests
     {
         var handler = new StubMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = JsonContent.Create(new Dictionary<string, string>
-            {
-                ["X-Apple-I-MD"] = "md",
-                ["X-Apple-I-MD-M"] = "mdm",
-                ["X-Apple-I-MD-LU"] = "mdlu",
-                ["X-Mme-Device-Id"] = "device",
-                ["X-Mme-Client-Info"] = "client",
-            }),
+            Content = JsonContent.Create(AnisetteFixtures.ValidHeaders),
         });
 
         using var client = new HttpClient(handler)
