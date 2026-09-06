@@ -4,7 +4,14 @@ using SignManager.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.AddJsonConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ ";
+});
+
 builder.Services.AddRazorPages();
+builder.Services.AddHealthChecks();
 builder.Services.Configure<WebUiOptions>(builder.Configuration.GetSection("WebUi"));
 
 builder.Services.AddSingleton<AppConfigStore>();
@@ -31,6 +38,9 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseAuthorization();
+
+app.MapHealthChecks("/health/live");
+app.MapHealthChecks("/health/ready");
 
 app.MapGet("/api/shortcut/refresh-plan", async (
     HttpContext httpContext,

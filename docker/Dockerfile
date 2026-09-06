@@ -26,8 +26,22 @@ RUN git clone ${ZSIGN_REPO} zsign \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends curl \
+	&& rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --gid 10001 appgroup \
+	&& useradd --uid 10001 --gid appgroup --create-home --shell /usr/sbin/nologin appuser
+
 COPY --from=build /app/web ./web
 COPY --from=build /app/worker ./worker
 COPY --from=zsign-build /usr/local/bin/zsign /usr/local/bin/zsign
+
+RUN chown -R appuser:appgroup /app
+
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+EXPOSE 8080
+
+USER appuser
 
 ENTRYPOINT ["dotnet", "web/SignManager.Web.dll"]

@@ -26,7 +26,7 @@ Milestone progress snapshot:
 - Milestone 9 (R2 publishing): completed at fixture-test level
 - Milestone 10 (web ui): completed at fixture-test level
 - Milestone 11 (shortcut api): completed at fixture-test level
-- Milestone 12+: not started
+- Milestone 12 (operations): completed at fixture-test level
 
 ## Solution layout
 

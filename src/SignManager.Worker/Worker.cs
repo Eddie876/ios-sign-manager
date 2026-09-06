@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Options;
+using SignManager.Infrastructure.Notifications;
+using SignManager.Worker.Operations;
 using SignManager.Worker.Signing;
 
 namespace SignManager.Worker;
@@ -6,6 +8,8 @@ namespace SignManager.Worker;
 public sealed class Worker(
     ILogger<Worker> logger,
     WorkerSigningScheduler scheduler,
+    JobWorkspaceCleanupService cleanupService,
+    IExceptionNotifier notifier,
     IOptions<SchedulerOptions> schedulerOptions) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -25,6 +29,16 @@ public sealed class Worker(
                         result.ScannedApps,
                         result.TriggeredJobs);
                 }
+
+                var cleanup = cleanupService.Cleanup(
+                    options.WorkspaceRoot,
+                    TimeSpan.FromHours(Math.Max(1, options.CleanupMaxAgeHours)),
+                    DateTimeOffset.UtcNow);
+
+                logger.LogInformation(
+                    "Workspace cleanup completed. scanned={ScannedDirectories}, deleted={DeletedDirectories}",
+                    cleanup.ScannedDirectories,
+                    cleanup.DeletedDirectories);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -33,6 +47,17 @@ public sealed class Worker(
             catch (Exception ex)
             {
                 logger.LogError(ex, "Scheduler scan failed.");
+
+                await notifier.NotifyAsync(
+                    new ExceptionAlert(
+                        Title: "Scheduler scan failed",
+                        ErrorCode: "TELEGRAM_FAILED",
+                        Message: ex.Message,
+                        Metadata: new Dictionary<string, string>
+                        {
+                            ["exception"] = ex.GetType().Name,
+                        }),
+                    stoppingToken);
             }
 
             var delaySeconds = Math.Max(1, options.ScanIntervalSeconds);

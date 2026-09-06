@@ -1,5 +1,6 @@
 using SignManager.Core.Models;
 using SignManager.Core.Services;
+using SignManager.Infrastructure.Notifications;
 using SignManager.Infrastructure.Persistence;
 
 namespace SignManager.Worker.Signing;
@@ -9,7 +10,8 @@ public sealed class WorkerSigningScheduler(
     AppStateStore appStateStore,
     RefreshPlanner refreshPlanner,
     ISigningJobProcessor jobProcessor,
-    ManualSignTriggerStore manualSignTriggerStore)
+    ManualSignTriggerStore manualSignTriggerStore,
+    IExceptionNotifier notifier)
 {
     public bool RequestManualSign(string appId)
         => manualSignTriggerStore.Request(appId);
@@ -74,6 +76,21 @@ public sealed class WorkerSigningScheduler(
             var result = await jobProcessor.RunAsync(request, cancellationToken);
             states[app.Id] = ApplyPostRunState(result, now);
             await SaveStateAsync(options.AppStatePath, states, cancellationToken);
+
+            if (result.Job.Status == SigningJobStatus.Failed && !result.ShouldRetry)
+            {
+                await notifier.NotifyAsync(
+                    new ExceptionAlert(
+                        Title: "Signing job failed",
+                        ErrorCode: result.ErrorCode ?? "TELEGRAM_FAILED",
+                        Message: "Non-retryable failure detected.",
+                        Metadata: new Dictionary<string, string>
+                        {
+                            ["appId"] = app.Id,
+                            ["jobId"] = result.Job.JobId,
+                        }),
+                    cancellationToken);
+            }
 
             if (isManual)
             {

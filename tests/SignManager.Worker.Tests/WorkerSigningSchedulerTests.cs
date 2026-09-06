@@ -1,5 +1,6 @@
 using SignManager.Core.Models;
 using SignManager.Core.Services;
+using SignManager.Infrastructure.Notifications;
 using SignManager.Infrastructure.Persistence;
 using SignManager.Worker.Signing;
 
@@ -151,13 +152,58 @@ public class WorkerSigningSchedulerTests
         }
     }
 
+    [Fact]
+    public async Task RunScanOnce_ShouldNotify_WhenFailureIsNonRetryable()
+    {
+        var root = CreateTempRoot();
+
+        try
+        {
+            var paths = CreatePaths(root);
+            var now = new DateTimeOffset(2026, 9, 6, 10, 0, 0, TimeSpan.Zero);
+            await SaveSingleAppConfigAsync(paths.ConfigPath, now);
+
+            var processor = new FakeJobProcessor((request, _) =>
+            {
+                var failedState = new AppRuntimeState(RuntimeStatus.Failed, null, null, null, null, null, null, "INVALID_IPA");
+                return Task.FromResult(new SigningJobRunResult(
+                    request.Job with { Status = SigningJobStatus.Failed, Attempt = 1 },
+                    Build: null,
+                    RuntimeState: failedState,
+                    ShouldRetry: false,
+                    NextRetryAt: null,
+                    ErrorCode: "INVALID_IPA",
+                    Timeline: [SigningJobStatus.Preflight, SigningJobStatus.Failed]));
+            });
+
+            var notifier = new CapturingNotifier();
+            var scheduler = new WorkerSigningScheduler(
+                new AppConfigStore(),
+                new AppStateStore(),
+                new RefreshPlanner(),
+                processor,
+                new ManualSignTriggerStore(),
+                notifier);
+
+            await scheduler.RunScanOnceAsync(CreateOptions(paths), now, CancellationToken.None);
+
+            Assert.Single(notifier.Alerts);
+            Assert.Equal("INVALID_IPA", notifier.Alerts[0].ErrorCode);
+        }
+        finally
+        {
+            Cleanup(root);
+        }
+    }
+
     private static WorkerSigningScheduler CreateScheduler(ISigningJobProcessor processor)
         => new(
             new AppConfigStore(),
             new AppStateStore(),
             new RefreshPlanner(),
             processor,
-            new ManualSignTriggerStore());
+            new ManualSignTriggerStore(),
+            new CapturingNotifier());
 
     private static SchedulerOptions CreateOptions((string ConfigPath, string StatePath, string WorkspaceRoot) paths)
         => new(
@@ -301,6 +347,17 @@ public class WorkerSigningSchedulerTests
         {
             Calls.Add(request);
             return await handler(request, cancellationToken);
+        }
+    }
+
+    private sealed class CapturingNotifier : IExceptionNotifier
+    {
+        public List<ExceptionAlert> Alerts { get; } = [];
+
+        public Task NotifyAsync(ExceptionAlert alert, CancellationToken cancellationToken)
+        {
+            Alerts.Add(alert);
+            return Task.CompletedTask;
         }
     }
 }

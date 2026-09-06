@@ -102,7 +102,11 @@ public sealed record SchedulerOptions(
     string ZsignExecutablePath = "zsign",
     int ScanIntervalSeconds = 30,
     int MaxProcessOutputBytes = 256 * 1024,
-    int ZsignTimeoutSeconds = 1200);
+    int ZsignTimeoutSeconds = 1200,
+    int CleanupMaxAgeHours = 72,
+    bool TelegramAlertsEnabled = false,
+    string? TelegramBotToken = null,
+    string? TelegramChatId = null);
 
 public sealed record SchedulerScanResult(
     int ScannedApps,
